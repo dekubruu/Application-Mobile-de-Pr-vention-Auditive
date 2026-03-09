@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Redirect } from 'expo-router';
@@ -19,25 +20,11 @@ export default function Home() {
     </View>
   );
   */
-}
+=======
+import { Redirect } from 'expo-router';
+import React from 'react';
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: Colors.text,
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    marginBottom: 30,
-  },
-});
+export default function Index() {
+  return <Redirect href="/test" />;
+>>>>>>> 9637e9e (feat: implement hearing test functionality)
+}
