@@ -67,7 +67,7 @@ export default function TestScreen() {
   // ============ MODIFICATION 1: Démarrer le test SANS jouer de son ============
   const startTest = () => {
     try {
-      // ✅ NE PAS jouer de son au démarrage
+      // NE PAS jouer de son au démarrage
       // Le son ne sera joué que quand l'utilisateur clique sur "Jouer"
 
       setTestStarted(true);
@@ -101,7 +101,7 @@ export default function TestScreen() {
   const handleHeard = () => {
     // ✅ Ne pas arrêter le son automatiquement
     // L'utilisateur peut appuyer pendant que le son joue
-    
+    stopFrequency()
     // Enregistrer le résultat
     const newResult: TestResult = {
       frequency: currentFrequency,
@@ -158,6 +158,7 @@ export default function TestScreen() {
   // ============ L'utilisateur N'A PAS ENTENDU ============
   const handleNotHeard = () => {
     // ✅ Ne pas arrêter le son automatiquement
+    stopFrequency()
     
     // Enregistrer le résultat
     const newResult: TestResult = {
@@ -220,7 +221,7 @@ export default function TestScreen() {
               </Text>
               <Text style={styles.scoreUnit}>Hz</Text>
             </View>
-            <Text style={styles.statusLabel}>{summary.status}</Text>
+           
           </Card>
 
           {/* Statistiques */}
@@ -366,7 +367,7 @@ export default function TestScreen() {
               variant="primary"
               size="lg"
               onPress={handleHeard}
-              // ✅ Pas de disabled pendant le son!
+               disabled={!isPlaying}
             />
             <Button
               title="Je n'entends pas"
@@ -374,7 +375,7 @@ export default function TestScreen() {
               size="lg"
               onPress={handleNotHeard}
               style={{ marginTop: 12 }}
-              // ✅ Pas de disabled pendant le son!
+               disabled={!isPlaying}
             />
           </View>
 
