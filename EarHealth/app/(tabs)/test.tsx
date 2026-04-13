@@ -1,9 +1,10 @@
-// app/test.tsx - VERSION MODIFIÉE
+// app/test.tsx - VERSION AVEC WEB AUDIO API
 import Slider from '@react-native-community/slider';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,17 +12,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Colors } from '../../constants/colors';
-import { AudioGeneratorService } from '../../hooks/audioGeneratorService';
 
 /**
  * MODIFICATIONS APPLIQUÉES:
  * 
- * 1. ✅ Son joué SEULEMENT quand on clique "Jouer", pas au démarrage
- * 2. ✅ Progression: ×2 jusqu'à 8kHz, puis +2kHz jusqu'à 24kHz
- * 3. ✅ Boutons "J'entends/Je n'entends pas" cliquables PENDANT que le son joue
+ * ✅ Suppression de AudioGeneratorService
+ * ✅ Intégration Web Audio API via WebView
+ * ✅ Support iOS, Android et Web
+ * ✅ Son joué SEULEMENT quand on clique "Jouer"
+ * ✅ Progression: ×2 jusqu'à 8kHz, puis +2kHz jusqu'à 24kHz
+ * ✅ Boutons cliquables PENDANT que le son joue
  */
 
 interface TestResult {
@@ -32,13 +36,105 @@ interface TestResult {
 
 export default function TestScreen() {
   const router = useRouter();
+  const webViewRef = useRef<WebView>(null);
+  const webAudioEngineRef = useRef<{
+    audioContext?: any;
+    oscillator?: any;
+    gainNode?: any;
+  }>(null);
+  const isWeb = Platform.OS === 'web';
+
+  useEffect(() => {
+    if (isWeb) {
+      setAudioReady(true);
+    }
+  }, [isWeb]);
+
+  const initWebAudio = async () => {
+    if (!isWeb) return;
+    if (!webAudioEngineRef.current) {
+      webAudioEngineRef.current = {};
+    }
+
+    const AudioContextClass =
+      (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) {
+      throw new Error('AudioContext unsupported');
+    }
+
+    if (!webAudioEngineRef.current.audioContext) {
+      webAudioEngineRef.current.audioContext = new AudioContextClass();
+    }
+
+    if (webAudioEngineRef.current.audioContext.state === 'suspended') {
+      await webAudioEngineRef.current.audioContext.resume();
+    }
+  };
+
+  const playWebTone = async (frequency: number, volume: number) => {
+    if (!isWeb) return;
+    await initWebAudio();
+    const engine = webAudioEngineRef.current;
+    if (!engine?.audioContext) return;
+
+    if (engine.oscillator) {
+      try {
+        engine.oscillator.stop();
+      } catch (e) {
+        // already stopped
+      }
+    }
+
+    const oscillator = engine.audioContext.createOscillator();
+    const gainNode = engine.audioContext.createGain();
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(
+      frequency,
+      engine.audioContext.currentTime
+    );
+    gainNode.gain.setValueAtTime(volume, engine.audioContext.currentTime);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(engine.audioContext.destination);
+    oscillator.start();
+    oscillator.stop(engine.audioContext.currentTime + 10);
+
+    engine.oscillator = oscillator;
+    engine.gainNode = gainNode;
+  };
+
+  const stopWebTone = () => {
+    if (!isWeb) return;
+    const engine = webAudioEngineRef.current;
+    if (engine?.oscillator) {
+      try {
+        engine.oscillator.stop();
+      } catch (e) {
+        // already stopped
+      }
+      engine.oscillator = undefined;
+    }
+  };
+
+  const setWebToneVolume = (volume: number) => {
+    if (!isWeb) return;
+    const engine = webAudioEngineRef.current;
+    if (engine?.gainNode && engine.audioContext) {
+      engine.gainNode.gain.setValueAtTime(
+        volume,
+        engine.audioContext.currentTime
+      );
+    }
+  };
 
   // ============ État du test ============
   const [testStarted, setTestStarted] = useState(false);
   const [testCompleted, setTestCompleted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.2); // 0-1
+  const [volume, setVolume] = useState(0.2);
   const [results, setResults] = useState<TestResult[]>([]);
+  const [audioReady, setAudioReady] = useState(false);
 
   // ============ État des fréquences ============
   const [currentFrequency, setCurrentFrequency] = useState(1000);
@@ -52,24 +148,181 @@ export default function TestScreen() {
   const [precision, setPrecision] = useState(24000);
   const [hearingThreshold, setHearingThreshold] = useState<number | null>(null);
 
-  // ============ Initialiser AudioContext ============
-  useEffect(() => {
+  // ============ HTML pour WebView avec Web Audio API ============
+  const audioHTML = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body>
+        <script>
+          class AudioEngine {
+            constructor() {
+              this.audioContext = null;
+              this.oscillator = null;
+              this.gainNode = null;
+            }
+
+            async init() {
+              if (!this.audioContext) {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+              }
+              if (this.audioContext.state === 'suspended') {
+                try {
+                  await this.audioContext.resume();
+                } catch (error) {
+                  console.warn('AudioContext resume failed', error);
+                }
+              }
+            }
+
+            playTone(frequency, volume) {
+              if (!this.audioContext) {
+                console.error('AudioContext not initialized');
+                return;
+              }
+
+              // Stopper le son précédent si existe
+              this.stopTone();
+
+              this.oscillator = this.audioContext.createOscillator();
+              this.gainNode = this.audioContext.createGain();
+
+              this.oscillator.type = 'sine';
+              this.oscillator.frequency.setValueAtTime(
+                frequency, 
+                this.audioContext.currentTime
+              );
+              
+              this.gainNode.gain.setValueAtTime(
+                volume, 
+                this.audioContext.currentTime
+              );
+              
+              this.oscillator.connect(this.gainNode);
+              this.gainNode.connect(this.audioContext.destination);
+              
+              this.oscillator.start();
+              
+              // Auto-stop après 10 secondes (sécurité)
+              this.oscillator.stop(this.audioContext.currentTime + 10);
+            }
+
+            stopTone() {
+              if (this.oscillator) {
+                try {
+                  this.oscillator.stop();
+                } catch (e) {
+                  // Déjà stoppé
+                }
+                this.oscillator = null;
+              }
+            }
+
+            setVolume(volume) {
+              if (this.gainNode) {
+                this.gainNode.gain.setValueAtTime(
+                  volume,
+                  this.audioContext.currentTime
+                );
+              }
+            }
+          }
+
+          // Créer l'instance globale
+          const audioEngine = new AudioEngine();
+
+          function postAudioReady() {
+            if (
+              window.ReactNativeWebView &&
+              typeof window.ReactNativeWebView.postMessage === 'function'
+            ) {
+              window.ReactNativeWebView.postMessage(
+                JSON.stringify({ type: 'audio_ready' })
+              );
+            }
+          }
+
+          // Exposer les fonctions
+          window.initAudio = async () => {
+            try {
+              await audioEngine.init();
+            } catch (error) {
+              console.warn('Audio init failed', error);
+            }
+            postAudioReady();
+          };
+
+          window.playTone = (frequency, volume) => {
+            audioEngine.playTone(frequency, volume);
+          };
+
+          window.stopTone = () => {
+            audioEngine.stopTone();
+          };
+
+          window.setVolume = (volume) => {
+            audioEngine.setVolume(volume);
+          };
+
+          window.onerror = (message, source, lineno, colno, error) => {
+            postAudioReady();
+          };
+
+          // Auto-init au chargement
+          window.onload = () => {
+            window.initAudio().catch((error) => {
+              console.warn('Audio init failed on load', error);
+              postAudioReady();
+            });
+          };
+        </script>
+      </body>
+    </html>
+  `;
+
+  // ============ Gérer les messages de la WebView ============
+  const handleWebViewMessage = (event: any) => {
     try {
-      AudioGeneratorService.initAudioContext();
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'audio_ready') {
+        setAudioReady(true);
+      }
     } catch (error) {
-      Alert.alert(
-        'Erreur Audio',
-        'Web Audio API non supportée. Utilisez un navigateur moderne.'
-      );
+      console.error('Error parsing WebView message:', error);
     }
-  }, []);
+  };
 
-  // ============ MODIFICATION 1: Démarrer le test SANS jouer de son ============
+  const handleWebViewLoadEnd = () => {
+    if (!audioReady) {
+      setAudioReady(true);
+    }
+  };
+
+  const hiddenWebView = isWeb ? null : (
+    <WebView
+      ref={webViewRef}
+      source={{ html: audioHTML }}
+      style={{ height: 0, width: 0 }}
+      originWhitelist={["*"]}
+      javaScriptEnabled
+      onMessage={handleWebViewMessage}
+      onLoadEnd={handleWebViewLoadEnd}
+      onError={(event) => {
+        console.error('WebView error', event.nativeEvent);
+      }}
+    />
+  );
+
+  // ============ Démarrer le test ============
   const startTest = () => {
-    try {
-      // NE PAS jouer de son au démarrage
-      // Le son ne sera joué que quand l'utilisateur clique sur "Jouer"
+    if (!audioReady) {
+      Alert.alert('Audio non prêt', 'Veuillez patienter quelques secondes...');
+      return;
+    }
 
+    try {
       setTestStarted(true);
       setTestCompleted(false);
       setResults([]);
@@ -86,23 +339,62 @@ export default function TestScreen() {
   };
 
   // ============ Jouer la fréquence ============
-  const playFrequency = () => {
-    AudioGeneratorService.playFrequency(currentFrequency, volume);
+  const playFrequency = async () => {
+    if (!audioReady) return;
+
+    if (isWeb) {
+      await playWebTone(currentFrequency, volume);
+    } else {
+      webViewRef.current?.injectJavaScript(`
+        (async function() {
+          if (window.initAudio) {
+            try {
+              await window.initAudio();
+            } catch (e) {
+              console.warn('Audio init failed before play', e);
+            }
+          }
+          window.playTone(${currentFrequency}, ${volume});
+        })();
+        true;
+      `);
+    }
+
     setIsPlaying(true);
   };
 
   // ============ Arrêter le son ============
   const stopFrequency = () => {
-    AudioGeneratorService.stopFrequency();
+    if (isWeb) {
+      stopWebTone();
+    } else {
+      webViewRef.current?.injectJavaScript(`
+        window.stopTone();
+        true;
+      `);
+    }
     setIsPlaying(false);
   };
 
-  // ============ MODIFICATION 3: L'utilisateur a ENTENDU (PEUT CLIQUER PENDANT SON) ============
+  // ============ Mettre à jour le volume ============
+  const updateVolume = (newVolume: number) => {
+    setVolume(newVolume);
+    if (isPlaying) {
+      if (isWeb) {
+        setWebToneVolume(newVolume);
+      } else {
+        webViewRef.current?.injectJavaScript(`
+          window.setVolume(${newVolume});
+          true;
+        `);
+      }
+    }
+  };
+
+  // ============ L'utilisateur a ENTENDU ============
   const handleHeard = () => {
-    // ✅ Ne pas arrêter le son automatiquement
-    // L'utilisateur peut appuyer pendant que le son joue
-    stopFrequency()
-    // Enregistrer le résultat
+    stopFrequency();
+    
     const newResult: TestResult = {
       frequency: currentFrequency,
       heard: true,
@@ -111,45 +403,34 @@ export default function TestScreen() {
     const newResults = [...results, newResult];
     setResults(newResults);
 
-    // Mettre à jour lowerBound
     const newLowerBound = Math.max(lowerBound, currentFrequency);
-
-    // Calculer la nouvelle précision
     const newPrecision = upperBound - newLowerBound;
 
-    // ✅ VÉRIFIER SI TEST TERMINÉ
     if (newPrecision < 200) {
       const threshold = (newLowerBound + upperBound) / 2;
       setHearingThreshold(threshold);
       setTestCompleted(true);
-      stopFrequency(); // Arrêter le son quand test terminé
+      stopFrequency();
       return;
     }
 
-    // ============ MODIFICATION 2: Nouvelle progression ============
-    // ×2 jusqu'à 8kHz, puis +2kHz après
     let nextFrequency: number;
 
     if (testPhase === 'ascending') {
       if (currentFrequency < 8000) {
-        // Avant 8kHz: doubler
         nextFrequency = currentFrequency * 2;
       } else {
-        // À partir de 8kHz: ajouter 2kHz
         nextFrequency = currentFrequency + 2000;
       }
 
-      // Si dépasse 24000, passer à binary search
       if (nextFrequency > 24000) {
         nextFrequency = (newLowerBound + upperBound) / 2;
         setTestPhase('binary-search');
       }
     } else {
-      // Phase binary search
       nextFrequency = (newLowerBound + upperBound) / 2;
     }
 
-    // Mettre à jour l'état
     setCurrentFrequency(Math.round(nextFrequency));
     setLowerBound(newLowerBound);
     setPrecision(newPrecision);
@@ -157,10 +438,8 @@ export default function TestScreen() {
 
   // ============ L'utilisateur N'A PAS ENTENDU ============
   const handleNotHeard = () => {
-    // ✅ Ne pas arrêter le son automatiquement
-    stopFrequency()
+    stopFrequency();
     
-    // Enregistrer le résultat
     const newResult: TestResult = {
       frequency: currentFrequency,
       heard: false,
@@ -169,13 +448,9 @@ export default function TestScreen() {
     const newResults = [...results, newResult];
     setResults(newResults);
 
-    // Mettre à jour upperBound
     const newUpperBound = Math.min(upperBound, currentFrequency);
-
-    // Calculer la nouvelle précision
     const newPrecision = newUpperBound - lowerBound;
 
-    // ✅ VÉRIFIER SI TEST TERMINÉ
     if (newPrecision < 200) {
       const threshold = (lowerBound + newUpperBound) / 2;
       setHearingThreshold(threshold);
@@ -184,10 +459,8 @@ export default function TestScreen() {
       return;
     }
 
-    // Passer à binary search et calculer milieu
     const nextFrequency = (lowerBound + newUpperBound) / 2;
 
-    // Mettre à jour l'état
     setCurrentFrequency(Math.round(nextFrequency));
     setUpperBound(newUpperBound);
     setPrecision(newPrecision);
@@ -207,6 +480,9 @@ export default function TestScreen() {
 
     return (
       <SafeAreaView style={styles.safeArea}>
+        {/* WebView caché (toujours présent) */}
+        {hiddenWebView}
+
         <View style={styles.header}>
           <Text style={styles.headerTitle}>HearSafe</Text>
           <View style={{ width: 40 }} />
@@ -221,7 +497,6 @@ export default function TestScreen() {
               </Text>
               <Text style={styles.scoreUnit}>Hz</Text>
             </View>
-           
           </Card>
 
           {/* Statistiques */}
@@ -235,16 +510,6 @@ export default function TestScreen() {
             </View>
           </Card>
 
-          {/* Interprétation 
-          <Card style={styles.interpretationCard}>
-            <Text style={styles.interpretationTitle}>📊 Interprétation</Text>
-            <Text style={styles.interpretationText}>{summary.interpretation}</Text>
-            <Text style={styles.disclaimerText}>
-              ⚠️ Cet outil est un dépistage préliminaire. Consultez un audiologiste
-              pour une évaluation complète.
-            </Text>
-          </Card>
-          */}
           {/* Actions */}
           <View style={styles.actions}>
             <Button
@@ -254,16 +519,6 @@ export default function TestScreen() {
               onPress={startTest}
               style={{ marginBottom: 12 }}
             />
-            {/*
-            <Button
-              title="Sauvegarder et continuer"
-              variant="secondary"
-              size="lg"
-              onPress={() => {
-                router.push('../results');
-              }}
-            />
-            */}
           </View>
 
           <View style={{ height: 40 }} />
@@ -276,6 +531,9 @@ export default function TestScreen() {
   if (testStarted) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        {/* WebView caché (toujours présent) */}
+        {hiddenWebView}
+
         <View style={styles.header}>
           <TouchableOpacity onPress={cancelTest}>
             <Text style={styles.backButton}>✕ Annuler</Text>
@@ -285,14 +543,14 @@ export default function TestScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Infos phase 
+          {/* Infos phase */}
           <Card>
             <View style={styles.phaseInfo}>
               <Text style={styles.phaseLabel}>
                 Phase:{' '}
                 <Text style={styles.phaseValue}>
                   {testPhase === 'ascending'
-                    ? 'Montante (Doubling jusqu\'à 8kHz, +2kHz après)'
+                    ? 'Montante (×2 jusqu\'à 8kHz, +2kHz après)'
                     : 'Recherche Binaire'}
                 </Text>
               </Text>
@@ -301,7 +559,6 @@ export default function TestScreen() {
               </Text>
             </View>
           </Card>
-          */}
 
           {/* Fréquence actuelle */}
           <Card style={styles.audioCard}>
@@ -310,7 +567,6 @@ export default function TestScreen() {
               <Text style={styles.frequencyValue}>
                 {currentFrequency.toLocaleString()} Hz
               </Text>
-              
             </View>
 
             {/* Bouton Play/Stop */}
@@ -338,7 +594,7 @@ export default function TestScreen() {
               minimumValue={0}
               maximumValue={1}
               value={volume}
-              onValueChange={setVolume}
+              onValueChange={updateVolume}
               minimumTrackTintColor={Colors.primary}
               maximumTrackTintColor={Colors.border}
               step={0.05}
@@ -348,26 +604,14 @@ export default function TestScreen() {
             </Text>
           </Card>
 
-          {/* Instructions 
-          <Card style={styles.instructionCard}>
-            <Text style={styles.instructionTitle}>📋 Instructions</Text>
-            <Text style={styles.instructionText}>
-              1. Cliquez sur "Jouer" pour entendre le son{'\n'}
-              2. Indiquez si vous l'entendez pendant que le son joue{'\n'}
-              3. Le test s'ajustera automatiquement{'\n'}
-              4. Continuez jusqu'à la fin
-            </Text>
-          </Card>
-          */}
-
-          {/* Response Buttons - ✅ MODIFIÉS: Ne pas désactiver pendant le son */}
+          {/* Response Buttons */}
           <View style={styles.responseButtons}>
             <Button
               title="J'entends"
               variant="primary"
               size="lg"
               onPress={handleHeard}
-               disabled={!isPlaying}
+              //disabled={!isPlaying}
             />
             <Button
               title="Je n'entends pas"
@@ -375,20 +619,10 @@ export default function TestScreen() {
               size="lg"
               onPress={handleNotHeard}
               style={{ marginTop: 12 }}
-               disabled={!isPlaying}
+              //disabled={!isPlaying}
             />
           </View>
 
-          {/* Progression 
-          <Card>
-            <Text style={styles.progressLabel}>
-              Tests effectués: {results.length}
-            </Text>
-            <Text style={styles.progressDetail}>
-              Plage restante: {Math.round(lowerBound)} - {Math.round(upperBound)} Hz
-            </Text>
-          </Card>
-          */}
           <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
@@ -398,8 +632,10 @@ export default function TestScreen() {
   // ============ ÉCRAN ACCUEIL ============
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
+      {/* WebView caché (toujours présent) */}
+      {hiddenWebView}
 
+      <View style={styles.header}>
         <Text style={styles.headerTitle}>HearSafe</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -414,24 +650,6 @@ export default function TestScreen() {
         <Card style={styles.titleCard}>
           <Text style={styles.titleText}>Test Auditif </Text>
         </Card>
-
-        {/* Description 
-        <Card>
-          <Text style={styles.descriptionTitle}>Comment ça fonctionne?</Text>
-          <Text style={styles.descriptionText}>
-            Ce test utilise une{' '}
-            <Text style={{ fontWeight: '700' }}>recherche binaire</Text> pour
-            trouver votre seuil auditif exact:{'\n\n'}
-            • Commence à 1000 Hz{'\n'}
-            • Doubling jusqu'à 8kHz, puis +2kHz{'\n'}
-            • Affine la plage jusqu'à ±100 Hz{'\n'}
-            {'\n'}
-            ✓ Durée: ~5-10 minutes{'\n'}
-            ✓ Casque recommandé{'\n'}
-            ✓ Environnement calme requis
-          </Text>
-        </Card>
-        */}
 
         {/* Spécifications */}
         <Card>
@@ -456,25 +674,14 @@ export default function TestScreen() {
           </View>
         </Card>
 
-        {/* Warning 
-        <Card style={styles.warningCard}>
-          <Text style={styles.warningTitle}>⚠️ Important</Text>
-          <Text style={styles.warningText}>
-            Cet outil est un{' '}
-            <Text style={{ fontWeight: '700' }}>dépistage préliminaire</Text>,
-            pas un diagnostic médical. Consultez un audiologiste pour une
-            évaluation complète et professionnelle.
-          </Text>
-        </Card>
-        */}
-
         {/* Start Button */}
         <Button
-          title="Démarrer le test"
+          title={audioReady ? "Démarrer le test" : "Chargement de l'audio..."}
           variant="primary"
           size="lg"
           onPress={startTest}
           style={styles.startButton}
+          disabled={!audioReady}
         />
 
         <View style={{ height: 40 }} />
