@@ -1,23 +1,24 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect } from 'expo-router';
 import { Colors } from '../constants/colors';
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/test');
-  }, []);
-
+  // Utiliser Redirect au lieu de useRouter + useEffect
+  return <Redirect href="/test" />;
+  
+  // OU si vous voulez afficher un écran de chargement :
+  /*
   return (
     <View style={styles.container}>
       <Text style={styles.title}>EarHealth</Text>
       <Text style={styles.subtitle}>
-        Redirection vers le test...
+        Redirection vers le sonomètre...
       </Text>
+      <Redirect href="/soundmeter" />
     </View>
   );
+  */
 }
 
 const styles = StyleSheet.create({
