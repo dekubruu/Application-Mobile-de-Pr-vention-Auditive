@@ -1,24 +1,17 @@
-import { Redirect } from 'expo-router';
-import React from 'react';
-import { useEffect } from 'react'
+import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 
-import { useSupabase } from '@/src/context/SupabaseContext';
-
-
-export default function Index() {
-  const { supabase } = useSupabase();
+export default function Home() {
+  const router = useRouter();
 
   useEffect(() => {
-    const testConnection = async () => {
-      const { data, error } = await supabase.from('test').select('*')
-      if (error) {
-        console.log('❌ Erreur:', error.message)
-      } else {
-        console.log('✅ Connexion réussie:', data)
-      }
-    }
-    testConnection()
-  }, [supabase])
+    // Delay navigation to ensure the layout is mounted
+    const timeout = setTimeout(() => {
+      router.replace('/test');
+    }, 0);
 
-  return <Redirect href="/test" />
+    return () => clearTimeout(timeout);
+  }, [router]);
+
+  return null;
 }
