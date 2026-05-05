@@ -359,7 +359,7 @@ export default function TestScreen() {
         true;
       `);
     }
-
+    console.log('playing hard')
     setIsPlaying(true);
   };
 
