@@ -1,12 +1,5 @@
-// components/Card.tsx
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  ViewStyle,
-  TouchableOpacity,
-  Text,
-} from 'react-native';
+import { Platform, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import { Colors } from '../constants/colors';
 
 interface CardProps {
@@ -24,37 +17,48 @@ export const Card: React.FC<CardProps> = ({
   elevated = false,
   padding = 16,
 }) => {
-  const CardComponent = onPress ? TouchableOpacity : View;
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.card,
+          elevated && styles.elevated,
+          { padding },
+          pressed && styles.pressed,
+          style,
+        ]}
+      >
+        {children}
+      </Pressable>
+    );
+  }
 
   return (
-    <CardComponent
-      style={[
-        styles.card,
-        elevated && styles.cardElevated,
-        { padding },
-        style,
-      ]}
-      onPress={onPress}
-      activeOpacity={onPress ? 0.7 : 1}
-    >
+    <View style={[styles.card, elevated && styles.elevated, { padding }, style]}>
       {children}
-    </CardComponent>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.border,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      android: { elevation: 1 },
+    }),
   },
-  cardElevated: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  elevated: {
+    borderWidth: 0,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.10, shadowRadius: 12 },
+      android: { elevation: 5 },
+    }),
   },
+  pressed: { opacity: 0.92 },
 });
