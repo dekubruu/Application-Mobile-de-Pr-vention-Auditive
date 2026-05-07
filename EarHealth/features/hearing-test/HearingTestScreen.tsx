@@ -1,12 +1,6 @@
 import React from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Colors } from '@/constants/colors';
 import { WEBVIEW_AUDIO_HTML } from './constants/hearing-test.constants';
@@ -56,12 +50,7 @@ export default function HearingTestScreen() {
 
   const renderContent = () => {
     if (testCompleted && hearingThreshold !== null) {
-      return (
-        <TestResultView
-          hearingThreshold={hearingThreshold}
-          onRetry={startTest}
-        />
-      );
+      return <TestResultView hearingThreshold={hearingThreshold} onRetry={startTest} />;
     }
     if (testStarted) {
       return (
@@ -83,55 +72,66 @@ export default function HearingTestScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       {hiddenWebView}
 
       <View style={styles.header}>
-        {testStarted && !testCompleted ? (
-          <TouchableOpacity onPress={cancelTest}>
-            <Text style={styles.backButton}>✕ Annuler</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
+        <View style={styles.headerSide}>
+          {testStarted && !testCompleted && (
+            <Pressable onPress={cancelTest} style={styles.cancelBtn}>
+              <Text style={styles.cancelText}>Annuler</Text>
+            </Pressable>
+          )}
+        </View>
         <Text style={styles.headerTitle}>HearSafe</Text>
-        <View style={{ width: 40 }} />
+        <View style={styles.headerSide} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {renderContent()}
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
     backgroundColor: Colors.background,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
-  backButton: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.primary,
+  headerSide: {
+    width: 80,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.text,
+    letterSpacing: -0.3,
   },
-  scrollView: {
+  cancelBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+  },
+  cancelText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: Colors.primary,
+  },
+  content: {
     padding: 16,
+    paddingBottom: 40,
   },
 });

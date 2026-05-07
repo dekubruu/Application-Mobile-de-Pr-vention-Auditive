@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { QuizProgressBar } from './components/QuizProgressBar';
 import { QuizQuestionView } from './components/QuizQuestionView';
@@ -9,24 +10,19 @@ import { useQuiz } from './hooks/useQuiz';
 
 export default function QuizScreen() {
   const router = useRouter();
-  const {
-    currentQuestion,
-    questionIndex,
-    totalQuestions,
-    score,
-    gameEnded,
-    handleAnswer,
-    resetGame,
-  } = useQuiz();
+  const { currentQuestion, questionIndex, totalQuestions, score, gameEnded, handleAnswer, resetGame } = useQuiz();
+
+  const header = (title: string) => (
+    <View style={styles.header}>
+      <Text style={styles.headerTitle}>{title}</Text>
+    </View>
+  );
 
   if (gameEnded) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Résultat</Text>
-          <View style={{ width: 40 }} />
-        </View>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        {header('Résultat')}
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <QuizResultsView
             score={score}
             totalQuestions={totalQuestions}
@@ -39,41 +35,36 @@ export default function QuizScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Quiz Auditif</Text>
-        <View style={{ width: 40 }} />
-      </View>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      {header('Quiz Auditif')}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <QuizProgressBar current={questionIndex + 1} total={totalQuestions} />
         <QuizQuestionView question={currentQuestion} onAnswer={handleAnswer} />
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
     backgroundColor: Colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.text,
+    letterSpacing: -0.3,
   },
-  scrollView: {
+  content: {
     padding: 16,
+    paddingBottom: 40,
   },
 });

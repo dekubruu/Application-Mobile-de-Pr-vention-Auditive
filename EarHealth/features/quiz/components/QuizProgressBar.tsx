@@ -1,6 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Card } from '@/components/Card';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
 
 interface QuizProgressBarProps {
@@ -8,38 +7,71 @@ interface QuizProgressBarProps {
   total: number;
 }
 
-export const QuizProgressBar: React.FC<QuizProgressBarProps> = ({ current, total }) => (
-  <Card>
-    <View style={styles.container}>
-      <Text style={styles.text}>
-        Question {current} / {total}
-      </Text>
+export const QuizProgressBar: React.FC<QuizProgressBarProps> = ({ current, total }) => {
+  const progress = useRef(new Animated.Value(current / total)).current;
+
+  useEffect(() => {
+    Animated.spring(progress, {
+      toValue: current / total,
+      useNativeDriver: false,
+      speed: 14,
+      bounciness: 0,
+    }).start();
+  }, [current, total]);
+
+  return (
+    <View style={styles.wrapper}>
+      <View style={styles.header}>
+        <Text style={styles.label}>Question {current}</Text>
+        <Text style={styles.counter}>{current} / {total}</Text>
+      </View>
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${(current / total) * 100}%` }]} />
+        <Animated.View
+          style={[
+            styles.fill,
+            {
+              width: progress.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0%', '100%'],
+              }),
+            },
+          ]}
+        />
       </View>
     </View>
-  </Card>
-);
+  );
+};
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
+  wrapper: {
+    marginBottom: 12,
   },
-  text: {
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  label: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 12,
     color: Colors.text,
+  },
+  counter: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
   track: {
     width: '100%',
-    height: 8,
-    backgroundColor: Colors.background,
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: Colors.borderLight,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
     backgroundColor: Colors.primary,
+    borderRadius: 3,
   },
 });

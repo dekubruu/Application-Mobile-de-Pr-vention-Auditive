@@ -1,6 +1,8 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { getSoundLevelCategory } from '../constants/sound-level.constants';
+
+const MAX_DB = 120;
 
 interface SoundLevelBarProps {
   soundLevel: number;
@@ -8,27 +10,46 @@ interface SoundLevelBarProps {
 
 export const SoundLevelBar: React.FC<SoundLevelBarProps> = ({ soundLevel }) => {
   const category = getSoundLevelCategory(soundLevel);
-  const barWidth = Math.min(soundLevel, 100);
+  const widthAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const pct = Math.min(Math.max(soundLevel / MAX_DB, 0), 1) * 100;
+    Animated.timing(widthAnim, {
+      toValue: pct,
+      duration: 120,
+      useNativeDriver: false,
+    }).start();
+  }, [soundLevel]);
 
   return (
-    <View style={styles.indicator}>
-      <View
-        style={[styles.bar, { width: barWidth, backgroundColor: category.color }]}
+    <View style={styles.track}>
+      <Animated.View
+        style={[
+          styles.fill,
+          {
+            backgroundColor: category.color,
+            width: widthAnim.interpolate({
+              inputRange: [0, 100],
+              outputRange: ['0%', '100%'],
+            }),
+          },
+        ]}
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  indicator: {
+  track: {
     width: '100%',
-    height: 30,
+    height: 14,
     backgroundColor: '#E5E7EB',
-    borderRadius: 15,
+    borderRadius: 7,
     overflow: 'hidden',
-    marginBottom: 40,
+    marginTop: 16,
   },
-  bar: {
+  fill: {
     height: '100%',
+    borderRadius: 7,
   },
 });

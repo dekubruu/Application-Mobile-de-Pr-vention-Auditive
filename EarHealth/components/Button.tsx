@@ -1,18 +1,19 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
+  Animated,
+  Pressable,
   StyleProp,
-  ViewStyle,
+  StyleSheet,
+  Text,
   TextStyle,
+  ViewStyle,
 } from 'react-native';
 import { Colors } from '../constants/colors';
 
 interface ButtonProps {
   onPress: () => void;
   title: string;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'lg' | 'md' | 'sm';
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
@@ -28,84 +29,68 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
   disabled = false,
 }) => {
-  const getButtonStyle = () => {
-    return [
-      styles.button,
-      variant === 'primary' && styles.buttonPrimary,
-      variant === 'secondary' && styles.buttonSecondary,
-      variant === 'ghost' && styles.buttonGhost,
-      size === 'lg' && styles.buttonLg,
-      size === 'md' && styles.buttonMd,
-      size === 'sm' && styles.buttonSm,
-      disabled && styles.buttonDisabled,
-      style,
-    ];
-  };
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const getTextStyle = () => {
-    return [
-      styles.buttonText,
-      variant === 'primary' && styles.buttonTextPrimary,
-      variant === 'secondary' && styles.buttonTextSecondary,
-      textStyle,
-    ];
-  };
+  const onPressIn = () =>
+    Animated.spring(scale, { toValue: 0.97, useNativeDriver: true, speed: 50, bounciness: 2 }).start();
+
+  const onPressOut = () =>
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 50, bounciness: 2 }).start();
 
   return (
-    <TouchableOpacity
-      style={getButtonStyle()}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.7}
-    >
-      <Text style={getTextStyle()}>{title}</Text>
-    </TouchableOpacity>
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={disabled}
+        style={[
+          styles.base,
+          variant === 'primary' && styles.primary,
+          variant === 'secondary' && styles.secondary,
+          variant === 'ghost' && styles.ghost,
+          variant === 'danger' && styles.danger,
+          size === 'lg' && styles.lg,
+          size === 'md' && styles.md,
+          size === 'sm' && styles.sm,
+          disabled && styles.disabled,
+        ]}
+      >
+        <Text
+          style={[
+            styles.label,
+            variant === 'primary' && styles.labelPrimary,
+            variant === 'secondary' && styles.labelSecondary,
+            variant === 'ghost' && styles.labelGhost,
+            variant === 'danger' && styles.labelPrimary,
+            size === 'sm' && styles.labelSm,
+            textStyle,
+          ]}
+        >
+          {title}
+        </Text>
+      </Pressable>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  button: {
-    borderRadius: 10,
+  base: {
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  buttonPrimary: {
-    backgroundColor: Colors.primary,
-  },
-  buttonSecondary: {
-    backgroundColor: Colors.background,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-  },
-  buttonGhost: {
-    backgroundColor: 'transparent',
-  },
-  buttonLg: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    minHeight: 56,
-  },
-  buttonMd: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    minHeight: 48,
-  },
-  buttonSm: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    minHeight: 44,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  buttonTextPrimary: {
-    color: '#FFFFFF',
-  },
-  buttonTextSecondary: {
-    color: Colors.primary,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
+  primary: { backgroundColor: Colors.primary },
+  secondary: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  ghost: { backgroundColor: 'transparent' },
+  danger: { backgroundColor: Colors.error },
+  lg: { paddingVertical: 16, paddingHorizontal: 28, minHeight: 56 },
+  md: { paddingVertical: 13, paddingHorizontal: 24, minHeight: 48 },
+  sm: { paddingVertical: 9, paddingHorizontal: 16, minHeight: 36 },
+  disabled: { opacity: 0.45 },
+  label: { fontSize: 16, fontWeight: '600', letterSpacing: 0.1 },
+  labelPrimary: { color: '#FFFFFF' },
+  labelSecondary: { color: Colors.primary },
+  labelGhost: { color: Colors.primary },
+  labelSm: { fontSize: 14 },
 });

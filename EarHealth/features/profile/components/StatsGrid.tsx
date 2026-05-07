@@ -1,6 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { Card } from '@/components/Card';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
 
 interface StatsGridProps {
@@ -9,41 +8,61 @@ interface StatsGridProps {
   days: number;
 }
 
-export const StatsGrid: React.FC<StatsGridProps> = ({ tests, points, days }) => (
-  <View style={styles.grid}>
-    <StatCard value={tests} label="Tests" />
-    <StatCard value={points} label="Points" />
-    <StatCard value={days} label="Jours" />
-  </View>
-);
+const STATS = [
+  { key: 'tests', icon: '🎧', label: 'Tests' },
+  { key: 'points', icon: '⭐', label: 'Points' },
+  { key: 'days', icon: '📅', label: 'Jours' },
+] as const;
 
-const StatCard: React.FC<{ value: number; label: string }> = ({ value, label }) => (
-  <Card style={styles.card}>
-    <Text style={styles.value}>{value}</Text>
-    <Text style={styles.label}>{label}</Text>
-  </Card>
-);
+export const StatsGrid: React.FC<StatsGridProps> = ({ tests, points, days }) => {
+  const values = { tests, points, days };
+
+  return (
+    <View style={styles.grid}>
+      {STATS.map((stat) => (
+        <View key={stat.key} style={styles.card}>
+          <Text style={styles.icon}>{stat.icon}</Text>
+          <Text style={styles.value}>{values[stat.key]}</Text>
+          <Text style={styles.label}>{stat.label}</Text>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
+    gap: 10,
+    marginBottom: 12,
   },
   card: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 18,
     alignItems: 'center',
-    paddingVertical: 16,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
+      android: { elevation: 1 },
+    }),
+  },
+  icon: {
+    fontSize: 22,
+    marginBottom: 6,
   },
   value: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.primary,
-    marginBottom: 4,
+    letterSpacing: -0.5,
+    marginBottom: 2,
   },
   label: {
     fontSize: 12,
     color: Colors.textSecondary,
+    fontWeight: '500',
   },
 });

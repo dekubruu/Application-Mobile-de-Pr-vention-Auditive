@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
@@ -9,99 +10,112 @@ interface TestIntroViewProps {
   onStart: () => void;
 }
 
+const SPECS = [
+  { label: 'Plage de fréquences', value: '250 Hz – 24 kHz' },
+  { label: 'Précision finale', value: '±200 Hz' },
+  { label: 'Type de ton', value: 'Sinusoïdal' },
+  { label: 'Méthode', value: 'Recherche Binaire' },
+];
+
 export const TestIntroView: React.FC<TestIntroViewProps> = ({ audioReady, onStart }) => (
   <>
-    <View style={styles.centerContainer}>
-      <Text style={styles.logoIcon}>🎧</Text>
+    <View style={styles.hero}>
+      <View style={styles.iconRing}>
+        <Ionicons name="ear" size={52} color={Colors.primary} />
+      </View>
+      <Text style={styles.heroTitle}>Test Auditif</Text>
+      <Text style={styles.heroSubtitle}>
+        Mesurez votre seuil auditif en quelques minutes grâce à la recherche binaire.
+      </Text>
     </View>
 
-    <Card style={styles.titleCard}>
-      <Text style={styles.titleText}>Test Auditif</Text>
-    </Card>
-
     <Card>
-      <Text style={styles.specTitle}>Spécifications</Text>
+      <Text style={styles.sectionLabel}>Spécifications</Text>
       <View style={styles.specGrid}>
-        <View style={styles.specItem}>
-          <Text style={styles.specLabel}>Plage de fréquences</Text>
-          <Text style={styles.specValue}>250 Hz - 24000 Hz</Text>
-        </View>
-        <View style={styles.specItem}>
-          <Text style={styles.specLabel}>Précision finale</Text>
-          <Text style={styles.specValue}>±200 Hz</Text>
-        </View>
-        <View style={styles.specItem}>
-          <Text style={styles.specLabel}>Type de ton</Text>
-          <Text style={styles.specValue}>Sinusoïdal</Text>
-        </View>
-        <View style={styles.specItem}>
-          <Text style={styles.specLabel}>Méthode</Text>
-          <Text style={styles.specValue}>Recherche Binaire</Text>
-        </View>
+        {SPECS.map((spec) => (
+          <View key={spec.label} style={styles.specItem}>
+            <Text style={styles.specValue}>{spec.value}</Text>
+            <Text style={styles.specLabel}>{spec.label}</Text>
+          </View>
+        ))}
       </View>
     </Card>
 
     <Button
-      title={audioReady ? 'Démarrer le test' : "Chargement de l'audio..."}
+      title={audioReady ? 'Démarrer le test' : "Préparation de l'audio…"}
       variant="primary"
       size="lg"
       onPress={onStart}
-      style={styles.startButton}
+      style={styles.cta}
       disabled={!audioReady}
     />
   </>
 );
 
 const styles = StyleSheet.create({
-  centerContainer: {
+  hero: {
     alignItems: 'center',
-    marginVertical: 24,
+    paddingVertical: 32,
+    paddingHorizontal: 16,
   },
-  logoIcon: {
-    fontSize: 80,
-  },
-  titleCard: {
+  iconRing: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 24,
+    marginBottom: 20,
   },
-  titleText: {
+  heroTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: Colors.text,
-    textAlign: 'center',
+    letterSpacing: -0.5,
+    marginBottom: 8,
   },
-  specTitle: {
-    fontSize: 18,
+  heroSubtitle: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 8,
+  },
+  sectionLabel: {
+    fontSize: 12,
     fontWeight: '700',
-    marginBottom: 12,
-    color: Colors.text,
+    color: Colors.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 14,
   },
   specGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   specItem: {
     flex: 1,
-    minWidth: '48%',
-    backgroundColor: Colors.background,
-    padding: 12,
-    borderRadius: 8,
+    minWidth: '45%',
+    backgroundColor: Colors.primaryLight,
+    padding: 14,
+    borderRadius: 12,
     alignItems: 'center',
-  },
-  specLabel: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    marginBottom: 4,
-    fontWeight: '500',
   },
   specValue: {
     fontSize: 14,
     fontWeight: '700',
     color: Colors.primary,
     textAlign: 'center',
+    marginBottom: 3,
   },
-  startButton: {
-    marginTop: 16,
+  specLabel: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  cta: {
+    marginTop: 8,
   },
 });

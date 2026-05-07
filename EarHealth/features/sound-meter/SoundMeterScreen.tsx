@@ -1,11 +1,7 @@
 import React from 'react';
-import {
-  SafeAreaView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from '@/components/Button';
 import { Colors } from '@/constants/colors';
 import { SoundLevelBar } from './components/SoundLevelBar';
 import { SoundLevelDisplay } from './components/SoundLevelDisplay';
@@ -13,91 +9,82 @@ import { SoundLevelGuide } from './components/SoundLevelGuide';
 import { useSoundMeter } from './hooks/useSoundMeter';
 
 export default function SoundMeterScreen() {
-  const {
-    isWeb,
-    isMeasuring,
-    soundLevel,
-    averageLevel,
-    statusMessage,
-    category,
-    toggleMeasure,
-  } = useSoundMeter();
+  const { isWeb, isMeasuring, soundLevel, averageLevel, statusMessage, category, toggleMeasure } =
+    useSoundMeter();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Sonomètre</Text>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Sonomètre</Text>
+      </View>
 
-        <SoundLevelDisplay
-          soundLevel={soundLevel}
-          averageLevel={averageLevel}
-          category={category}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.meter}>
+          <SoundLevelDisplay soundLevel={soundLevel} averageLevel={averageLevel} category={category} />
+          <SoundLevelBar soundLevel={soundLevel} />
+        </View>
+
+        <Button
+          title={isMeasuring ? 'Arrêter la mesure' : 'Démarrer la mesure'}
+          variant={isMeasuring ? 'danger' : 'primary'}
+          size="lg"
+          onPress={toggleMeasure}
+          style={styles.btn}
         />
 
-        <SoundLevelBar soundLevel={soundLevel} />
-
-        <TouchableOpacity
-          style={[styles.button, isMeasuring ? styles.buttonStop : styles.buttonStart]}
-          onPress={toggleMeasure}
-        >
-          <Text style={styles.buttonText}>{isMeasuring ? 'Arrêter' : 'Démarrer'}</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.info}>{statusMessage}</Text>
-        <Text style={styles.help}>
+        <Text style={styles.status}>{statusMessage}</Text>
+        <Text style={styles.hint}>
           {isWeb
             ? 'Autorisez le microphone dans le navigateur.'
             : 'Autorisez le microphone sur votre appareil.'}
         </Text>
 
         <SoundLevelGuide />
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safe: {
     flex: 1,
     backgroundColor: Colors.background,
   },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: Colors.border,
   },
-  title: {
-    fontSize: 28,
+  headerTitle: {
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 40,
     color: Colors.text,
+    letterSpacing: -0.3,
   },
-  button: {
-    paddingVertical: 16,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    marginBottom: 20,
+  content: {
+    padding: 20,
+    paddingBottom: 48,
   },
-  buttonStart: {
-    backgroundColor: Colors.primary,
+  meter: {
+    alignItems: 'center',
+    paddingVertical: 32,
   },
-  buttonStop: {
-    backgroundColor: '#EF4444',
+  btn: {
+    marginBottom: 16,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  info: {
+  status: {
     fontSize: 14,
     color: Colors.textSecondary,
-  },
-  help: {
-    fontSize: 13,
-    color: Colors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginBottom: 4,
+  },
+  hint: {
+    fontSize: 13,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginBottom: 24,
+    lineHeight: 19,
   },
 });

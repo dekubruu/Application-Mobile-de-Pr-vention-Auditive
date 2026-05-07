@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
+import { Card } from '@/components/Card';
 import { Colors } from '@/constants/colors';
 
 interface QuizResultsViewProps {
@@ -10,78 +11,94 @@ interface QuizResultsViewProps {
   onBack: () => void;
 }
 
+function getResultCopy(score: number, total: number): { title: string; message: string } {
+  const ratio = score / total;
+  if (ratio === 1) return { title: 'Parfait !', message: 'Score parfait ! Vous êtes un expert de la santé auditive.' };
+  if (ratio >= 0.8) return { title: 'Excellent !', message: 'Vous maîtrisez très bien le sujet de l\'audition.' };
+  if (ratio >= 0.6) return { title: 'Bien !', message: 'Bonne connaissance ! Quelques points à revoir.' };
+  return { title: 'À améliorer', message: 'Continuez à apprendre pour mieux protéger vos oreilles.' };
+}
+
 export const QuizResultsView: React.FC<QuizResultsViewProps> = ({
   score,
   totalQuestions,
   onRetry,
   onBack,
-}) => (
-  <View style={styles.container}>
-    <View style={styles.scoreCircle}>
-      <Text style={styles.scoreNumber}>{score}</Text>
-      <Text style={styles.scoreTotal}>/ {totalQuestions}</Text>
-    </View>
+}) => {
+  const { title, message } = getResultCopy(score, totalQuestions);
+  const isGood = score / totalQuestions >= 0.6;
 
-    <Text style={styles.resultTitle}>Excellent!</Text>
-    <Text style={styles.resultMessage}>
-      Vous maîtrisez bien le sujet de l'audition.
-    </Text>
+  return (
+    <View style={styles.container}>
+      <Card style={styles.scoreCard} elevated>
+        <View style={[styles.scoreCircle, { borderColor: isGood ? Colors.success : Colors.warning }]}>
+          <Text style={[styles.scoreNumber, { color: isGood ? Colors.success : Colors.warning }]}>
+            {score}
+          </Text>
+          <Text style={[styles.scoreTotal, { color: isGood ? Colors.success : Colors.warning }]}>
+            / {totalQuestions}
+          </Text>
+        </View>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.message}>{message}</Text>
+      </Card>
 
-    <View style={styles.actions}>
-      <Button title="Rejouer" variant="primary" size="lg" onPress={onRetry} />
-      <Button
-        title="Retour Accueil"
-        variant="secondary"
-        size="lg"
-        onPress={onBack}
-      />
+      <View style={styles.actions}>
+        <Button title="Rejouer" variant="primary" size="lg" onPress={onRetry} />
+        <Button title="Retour au test" variant="secondary" size="lg" onPress={onBack} />
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 8,
+  },
+  scoreCard: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    marginBottom: 16,
   },
   scoreCircle: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: Colors.success,
+    borderWidth: 3,
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 32,
-    shadowColor: Colors.success,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    marginBottom: 24,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
+      android: { elevation: 3 },
+    }),
   },
   scoreNumber: {
     fontSize: 56,
     fontWeight: '700',
-    color: '#FFFFFF',
+    letterSpacing: -1,
   },
   scoreTotal: {
     fontSize: 18,
-    color: '#FFFFFF',
-    opacity: 0.9,
+    fontWeight: '600',
   },
-  resultTitle: {
-    fontSize: 28,
+  title: {
+    fontSize: 26,
     fontWeight: '700',
-    marginBottom: 8,
     color: Colors.text,
+    marginBottom: 8,
+    letterSpacing: -0.3,
   },
-  resultMessage: {
-    fontSize: 16,
+  message: {
+    fontSize: 15,
     color: Colors.textSecondary,
-    marginBottom: 32,
     textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: 8,
   },
   actions: {
-    width: '100%',
-    gap: 12,
+    gap: 10,
   },
 });

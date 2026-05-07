@@ -3,91 +3,121 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Colors } from '@/constants/colors';
+import { getTestSummary } from '../constants/hearing-test.constants';
 
 interface TestResultViewProps {
   hearingThreshold: number;
   onRetry: () => void;
 }
 
-export const TestResultView: React.FC<TestResultViewProps> = ({
-  hearingThreshold,
-  onRetry,
-}) => (
+export const TestResultView: React.FC<TestResultViewProps> = ({ hearingThreshold, onRetry }) => {
+  const summary = getTestSummary(hearingThreshold);
+  const isPositive = summary.status.startsWith('✓');
+  const statusColor = isPositive ? Colors.success : Colors.warning;
+  const statusBg = isPositive ? Colors.successLight : Colors.warningLight;
+
+  return (
     <>
-      <Card style={styles.scoreCard}>
-        <View style={styles.scoreCircle}>
-          <Text style={styles.scoreValue}>{Math.round(hearingThreshold)}</Text>
-          <Text style={styles.scoreUnit}>Hz</Text>
+      <Card style={styles.resultCard} elevated>
+        <View style={[styles.scoreCircle, { borderColor: statusColor }]}>
+          <Text style={[styles.scoreValue, { color: statusColor }]}>
+            {Math.round(hearingThreshold)}
+          </Text>
+          <Text style={[styles.scoreUnit, { color: statusColor }]}>Hz</Text>
+        </View>
+        <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+          <Text style={[styles.statusText, { color: statusColor }]}>{summary.status}</Text>
         </View>
       </Card>
 
       <Card>
         <Text style={styles.sectionTitle}>Résumé du test</Text>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Seuil auditif détecté:</Text>
-          <Text style={styles.statValue}>{Math.round(hearingThreshold)} Hz</Text>
+        <View style={styles.statRow}>
+          <Text style={styles.statLabel}>Seuil auditif détecté</Text>
+          <Text style={[styles.statValue, { color: statusColor }]}>
+            {Math.round(hearingThreshold)} Hz
+          </Text>
         </View>
+        <View style={styles.divider} />
+        <Text style={styles.interpretation}>{summary.interpretation}</Text>
       </Card>
 
-      <View style={styles.actions}>
-        <Button
-          title="Refaire le test"
-          variant="primary"
-          size="lg"
-          onPress={onRetry}
-          style={{ marginBottom: 12 }}
-        />
-      </View>
+      <Button
+        title="Refaire le test"
+        variant="primary"
+        size="lg"
+        onPress={onRetry}
+        style={styles.cta}
+      />
     </>
-);
+  );
+};
 
 const styles = StyleSheet.create({
-  scoreCard: {
+  resultCard: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
   },
   scoreCircle: {
     width: 160,
     height: 160,
     borderRadius: 80,
-    backgroundColor: Colors.primary,
+    borderWidth: 3,
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   scoreValue: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: '700',
-    color: '#FFFFFF',
+    letterSpacing: -1,
   },
   scoreUnit: {
     fontSize: 16,
-    color: '#FFFFFF',
-    marginLeft: 8,
+    fontWeight: '600',
+  },
+  statusBadge: {
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  statusText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    marginBottom: 12,
     color: Colors.text,
+    marginBottom: 14,
   },
-  statItem: {
+  statRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    alignItems: 'center',
+    paddingVertical: 4,
   },
   statLabel: {
     fontSize: 14,
     color: Colors.textSecondary,
   },
   statValue: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
-    color: Colors.primary,
   },
-  actions: {
-    marginTop: 16,
+  divider: {
+    height: 1,
+    backgroundColor: Colors.borderLight,
+    marginVertical: 14,
+  },
+  interpretation: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    lineHeight: 21,
+  },
+  cta: {
+    marginTop: 4,
   },
 });

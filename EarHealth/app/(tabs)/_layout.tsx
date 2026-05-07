@@ -1,7 +1,14 @@
-import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import React from 'react';
+import { Platform, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/colors';
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+function tabIcon(name: IoniconName, focused: boolean, color: string) {
+  return <Ionicons name={focused ? name : (`${name}-outline` as IoniconName)} size={24} color={color} />;
+}
 
 export default function TabLayout() {
   return (
@@ -11,48 +18,35 @@ export default function TabLayout() {
         tabBarStyle: styles.tabBar,
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.textSecondary,
-        tabBarLabelStyle: styles.tabBarLabel,
-        tabBarIconStyle: styles.tabBarIcon,
+        tabBarLabelStyle: styles.label,
       }}
     >
       <Tabs.Screen
         name="test"
         options={{
           title: 'Test',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>🎧</Text>
-          ),
+          tabBarIcon: ({ color, focused }) => tabIcon('ear', focused, color),
         }}
       />
-
       <Tabs.Screen
         name="game"
         options={{
           title: 'Jeu',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>🎮</Text>
-          ),
+          tabBarIcon: ({ color, focused }) => tabIcon('game-controller', focused, color),
         }}
       />
-      
       <Tabs.Screen
         name="soundmeter"
         options={{
           title: 'Sonomètre',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>🔊</Text>
-          ),
+          tabBarIcon: ({ color, focused }) => tabIcon('volume-high', focused, color),
         }}
       />
-
-
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color }) => (
-            <Text style={[styles.tabIcon, { color }]}>👤</Text>
-          ),
+          tabBarIcon: ({ color, focused }) => tabIcon('person', focused, color),
         }}
       />
     </Tabs>
@@ -62,20 +56,19 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: Colors.surface,
-    borderTopWidth: 1,
+    borderTopWidth: 0.5,
     borderTopColor: Colors.border,
-    paddingBottom: 8,
-    height: 70,
+    height: Platform.select({ ios: 84, default: 66 }),
+    paddingBottom: Platform.select({ ios: 22, default: 8 }),
+    paddingTop: 8,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -1 }, shadowOpacity: 0.06, shadowRadius: 8 },
+      android: { elevation: 8 },
+    }),
   },
-  tabBarLabel: {
-    fontSize: 10,
+  label: {
+    fontSize: 11,
     fontWeight: '500',
-    marginBottom: 4,
-  },
-  tabBarIcon: {
-    marginTop: 4,
-  },
-  tabIcon: {
-    fontSize: 24,
+    letterSpacing: 0.1,
   },
 });

@@ -1,6 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Colors } from '@/constants/colors';
@@ -20,54 +22,53 @@ export default function ResultsScreen() {
   const router = useRouter();
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Résultats</Text>
-        <Text style={styles.shareIcon}>📤</Text>
+        <Ionicons name="share-outline" size={22} color={Colors.primary} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <Card style={styles.resultSummary}>
-          <View style={styles.scoreCircle}>
-            <Text style={styles.scoreValue}>120</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Card style={styles.summaryCard} elevated>
+          <View style={[styles.scoreCircle, { borderColor: Colors.warning }]}>
+            <Text style={[styles.scoreValue, { color: Colors.warning }]}>120</Text>
+            <Text style={[styles.scoreUnit, { color: Colors.warning }]}>Hz</Text>
           </View>
           <Text style={styles.resultLabel}>À surveiller</Text>
-          <View style={styles.disclaimerBox}>
+
+          <View style={styles.disclaimer}>
+            <Ionicons name="information-circle-outline" size={16} color="#991B1B" />
             <Text style={styles.disclaimerText}>
-              ⚠️ Ceci est un outil de dépistage, pas un diagnostic médical.
+              Ceci est un outil de dépistage, pas un diagnostic médical.
             </Text>
           </View>
         </Card>
 
         <FrequencyTable results={STATIC_RESULTS} />
 
-        <View style={styles.actionButtons}>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="📋 Refaire"
-              variant="primary"
-              size="md"
-              onPress={() => router.push('/test')}
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button
-              title="📚 Conseils"
-              variant="secondary"
-              size="md"
-              onPress={() => router.push('/profile')}
-            />
-          </View>
+        <View style={styles.actions}>
+          <Button
+            title="Refaire le test"
+            variant="primary"
+            size="md"
+            onPress={() => router.push('/test')}
+            style={styles.actionBtn}
+          />
+          <Button
+            title="Voir le profil"
+            variant="secondary"
+            size="md"
+            onPress={() => router.push('/profile')}
+            style={styles.actionBtn}
+          />
         </View>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
     backgroundColor: Colors.background,
   },
@@ -75,66 +76,73 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.text,
+    letterSpacing: -0.3,
   },
-  shareIcon: {
-    fontSize: 20,
-  },
-  scrollView: {
+  content: {
     padding: 16,
+    paddingBottom: 48,
   },
-  resultSummary: {
+  summaryCard: {
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 36,
+    paddingHorizontal: 24,
   },
   scoreCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: Colors.primary,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 3,
+    backgroundColor: Colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    marginBottom: 20,
   },
   scoreValue: {
-    fontSize: 56,
+    fontSize: 48,
     fontWeight: '700',
-    color: '#FFFFFF',
+    letterSpacing: -1,
+  },
+  scoreUnit: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   resultLabel: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.warning,
-    marginBottom: 16,
+    marginBottom: 20,
+    letterSpacing: -0.3,
   },
-  disclaimerBox: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
+  disclaimer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: Colors.errorLight,
+    borderRadius: 10,
     padding: 12,
-    marginTop: 16,
+    gap: 8,
   },
   disclaimerText: {
+    flex: 1,
     fontSize: 13,
     color: '#991B1B',
-    textAlign: 'center',
+    lineHeight: 18,
   },
-  actionButtons: {
+  actions: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
+    gap: 10,
+    marginTop: 4,
+  },
+  actionBtn: {
+    flex: 1,
   },
 });

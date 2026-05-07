@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
 import type { SoundLevelCategory } from '../constants/sound-level.constants';
 
@@ -14,29 +14,55 @@ export const SoundLevelDisplay: React.FC<SoundLevelDisplayProps> = ({
   averageLevel,
   category,
 }) => (
-  <>
-    <Text style={styles.level}>{soundLevel} dB</Text>
-    <Text style={styles.subTitle}>{category.label}</Text>
-    <Text style={styles.average}>Moyenne: {averageLevel} dB</Text>
-  </>
+  <View style={styles.container}>
+    <Text style={[styles.level, { color: category.color }]}>{soundLevel}</Text>
+    <Text style={styles.unit}>dB</Text>
+    <View style={[styles.badge, { backgroundColor: category.color + '18' }]}>
+      <View style={[styles.dot, { backgroundColor: category.color }]} />
+      <Text style={[styles.badgeLabel, { color: category.color }]}>{category.label}</Text>
+    </View>
+    <Text style={styles.average}>Moyenne : {averageLevel} dB</Text>
+  </View>
 );
 
 const styles = StyleSheet.create({
-  level: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: Colors.primary,
-    marginBottom: 30,
+  container: {
+    alignItems: 'center',
   },
-  subTitle: {
+  level: {
+    fontSize: 80,
+    fontWeight: '800',
+    letterSpacing: -3,
+    lineHeight: 88,
+  },
+  unit: {
     fontSize: 18,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    marginTop: -4,
+    marginBottom: 16,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    gap: 6,
+    marginBottom: 10,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  badgeLabel: {
+    fontSize: 14,
     fontWeight: '700',
-    color: Colors.text,
-    marginBottom: 4,
   },
   average: {
-    fontSize: 14,
-    color: Colors.textSecondary,
-    marginBottom: 18,
+    fontSize: 13,
+    color: Colors.textTertiary,
+    fontWeight: '500',
   },
 });

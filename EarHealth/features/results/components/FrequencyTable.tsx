@@ -11,78 +11,53 @@ interface FrequencyTableProps {
 export const FrequencyTable: React.FC<FrequencyTableProps> = ({ results }) => (
   <Card>
     <Text style={styles.title}>Détails par fréquence</Text>
-    <View style={styles.table}>
-      {results.map((result, index) => (
-        <View key={index}>
-          <View style={styles.row}>
-            <Text style={styles.cell}>{result.freq}</Text>
-            <View
-              style={[
-                styles.badge,
-                result.status === 'ok' ? styles.badgeSuccess : styles.badgeWarning,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.badgeText,
-                  result.status === 'ok' ? styles.badgeTextSuccess : styles.badgeTextWarning,
-                ]}
-              >
-                {result.label}
-              </Text>
-            </View>
+    {results.map((result, index) => (
+      <View key={index}>
+        <View style={styles.row}>
+          <Text style={styles.freq}>{result.freq}</Text>
+          <View style={[styles.badge, result.status === 'ok' ? styles.badgeOk : styles.badgeWarn]}>
+            <Text style={[styles.badgeText, result.status === 'ok' ? styles.textOk : styles.textWarn]}>
+              {result.label}
+            </Text>
           </View>
-          {index < results.length - 1 && <View style={styles.divider} />}
         </View>
-      ))}
-    </View>
+        {index < results.length - 1 && <View style={styles.divider} />}
+      </View>
+    ))}
   </Card>
 );
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
-    marginBottom: 12,
     color: Colors.text,
-  },
-  table: {
-    borderRadius: 8,
+    marginBottom: 14,
+    letterSpacing: -0.1,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 11,
   },
-  cell: {
+  freq: {
+    fontSize: 14,
     fontWeight: '600',
     color: Colors.text,
-    fontSize: 14,
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  badgeSuccess: {
-    backgroundColor: '#D1FAE5',
-  },
-  badgeWarning: {
-    backgroundColor: '#FEF3C7',
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  badgeTextSuccess: {
-    color: Colors.success,
-  },
-  badgeTextWarning: {
-    color: Colors.warning,
   },
   divider: {
     height: 1,
-    backgroundColor: Colors.border,
+    backgroundColor: Colors.borderLight,
   },
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgeOk: { backgroundColor: Colors.successLight },
+  badgeWarn: { backgroundColor: Colors.warningLight },
+  badgeText: { fontSize: 12, fontWeight: '600' },
+  textOk: { color: Colors.success },
+  textWarn: { color: Colors.warning },
 });

@@ -1,13 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import {
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Card } from '@/components/Card';
 import { Colors } from '@/constants/colors';
 import { StatsGrid } from './components/StatsGrid';
@@ -16,151 +10,138 @@ export default function ProfileScreen() {
   const [darkMode, setDarkMode] = useState(false);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Profil</Text>
-        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <Card style={styles.profileHeader}>
-          <Text style={styles.avatar}>👤</Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Card style={styles.profileCard} elevated>
+          <View style={styles.avatarRing}>
+            <Ionicons name="person" size={36} color={Colors.primary} />
+          </View>
           <Text style={styles.userName}>Deaf Hacker</Text>
           <Text style={styles.userEmail}>Deaf.hacker@icanthearyou.help</Text>
         </Card>
 
         <StatsGrid tests={999} points={0} days={193} />
 
-        <Card style={styles.settingsSection}>
-          <Text style={styles.settingsSectionTitle}>Préférences</Text>
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>🌙 Mode sombre</Text>
+        <Card style={styles.section} padding={0}>
+          <Text style={styles.sectionTitle}>Préférences</Text>
+          <View style={styles.row}>
+            <View style={styles.rowIcon}>
+              <Ionicons name="moon-outline" size={18} color={Colors.textSecondary} />
+            </View>
+            <Text style={styles.rowLabel}>Mode sombre</Text>
             <Switch
               value={darkMode}
               onValueChange={setDarkMode}
-              trackColor={{ false: Colors.border, true: Colors.success }}
-              thumbColor={darkMode ? Colors.success : Colors.textSecondary}
+              trackColor={{ false: Colors.border, true: Colors.primary }}
+              thumbColor="#FFFFFF"
             />
           </View>
         </Card>
 
-        <Card style={styles.settingsSection}>
-          <Text style={styles.settingsSectionTitle}>Données</Text>
-          <TouchableOpacity style={styles.settingItem}>
-            <Text style={styles.settingLabel}>📥 Exporter mes données</Text>
-            <Text style={styles.chevron}>→</Text>
-          </TouchableOpacity>
-          <View style={styles.settingDivider} />
+        <Card style={styles.section} padding={0}>
+          <Text style={styles.sectionTitle}>Données</Text>
+          <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+            <View style={styles.rowIcon}>
+              <Ionicons name="download-outline" size={18} color={Colors.textSecondary} />
+            </View>
+            <Text style={styles.rowLabel}>Exporter mes données</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+          </Pressable>
         </Card>
-
-        {/* About section (commented out pending future implementation)
-        <Card style={styles.settingsSection}>
-          <Text style={styles.settingsSectionTitle}>À propos</Text>
-          <View style={styles.settingItem}>
-            <Text style={styles.settingLabel}>Version</Text>
-            <Text style={styles.settingValue}>1.0.0</Text>
-          </View>
-          <View style={styles.settingDivider} />
-          <TouchableOpacity style={styles.settingItem}>
-            <Text style={styles.settingLabel}>📄 Conditions d'utilisation</Text>
-            <Text style={styles.chevron}>→</Text>
-          </TouchableOpacity>
-          <View style={styles.settingDivider} />
-          <TouchableOpacity style={styles.settingItem}>
-            <Text style={styles.settingLabel}>🔐 Politique de confidentialité</Text>
-            <Text style={styles.chevron}>→</Text>
-          </TouchableOpacity>
-        </Card>
-        */}
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  safe: {
     flex: 1,
     backgroundColor: Colors.background,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
+    borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: '700',
     color: Colors.text,
+    letterSpacing: -0.3,
   },
-  scrollView: {
+  content: {
     padding: 16,
+    paddingBottom: 48,
   },
-  profileHeader: {
+  profileCard: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 28,
+    marginBottom: 12,
   },
-  avatar: {
-    fontSize: 64,
+  avatarRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
   },
   userName: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
-    marginBottom: 4,
     color: Colors.text,
+    letterSpacing: -0.3,
+    marginBottom: 4,
   },
   userEmail: {
-    fontSize: 14,
+    fontSize: 13,
     color: Colors.textSecondary,
   },
-  settingsSection: {
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    marginBottom: 16,
+  section: {
     overflow: 'hidden',
+    marginBottom: 12,
   },
-  settingsSectionTitle: {
-    fontSize: 14,
+  sectionTitle: {
+    fontSize: 11,
     fontWeight: '700',
-    color: Colors.textSecondary,
+    color: Colors.textTertiary,
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: Colors.background,
+    paddingTop: 14,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    borderBottomColor: Colors.borderLight,
   },
-  settingItem: {
+  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    gap: 12,
   },
-  settingLabel: {
+  rowPressed: {
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.surfaceSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rowLabel: {
+    flex: 1,
     fontSize: 15,
     color: Colors.text,
     fontWeight: '500',
-    flex: 1,
-  },
-  settingValue: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-  },
-  chevron: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-  },
-  settingDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginHorizontal: 16,
   },
 });
