@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -30,11 +31,42 @@ export const useHearingTest = () => {
   const [precision, setPrecision] = useState(DEFAULT_UPPER_BOUND);
   const [hearingThreshold, setHearingThreshold] = useState<number | null>(null);
 
+  // ── Platform setup & cleanup ──────────────────────────────────────────────
+
   useEffect(() => {
-    if (isWeb) setAudioReady(true);
+    if (isWeb) {
+      setAudioReady(true);
+      return;
+    }
+
+    // FIX: Configure iOS AVAudioSession so sound plays even in silent/ring mode.
+    // This also ensures the WebView audio is routed through the playback session.
+    Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: false,
+    }).catch((err) => console.warn('Audio session setup failed', err));
   }, [isWeb]);
 
-  // ── Web Audio (direct, for browser platform) ──────────────────────────────
+  // FIX: Release Web Audio resources when the screen unmounts so the
+  // AudioContext is closed and the oscillator thread is freed.
+  useEffect(() => {
+    return () => {
+      const engine = webAudioEngineRef.current;
+      if (!engine) return;
+      if (engine.oscillator) {
+        try { engine.oscillator.stop(); } catch (e) {}
+        engine.oscillator = undefined;
+      }
+      if (engine.audioContext) {
+        engine.audioContext.close().catch(() => {});
+        engine.audioContext = undefined;
+      }
+      engine.gainNode = undefined;
+    };
+  }, []);
+
+  // ── Web Audio API (browser platform only) ────────────────────────────────
 
   const initWebAudio = async () => {
     if (!isWeb) return;
@@ -55,9 +87,14 @@ export const useHearingTest = () => {
     await initWebAudio();
     const engine = webAudioEngineRef.current;
     if (!engine?.audioContext) return;
+
+    // FIX: explicitly stop and clear both nodes before creating new ones.
     if (engine.oscillator) {
       try { engine.oscillator.stop(); } catch (e) {}
+      engine.oscillator = undefined;
+      engine.gainNode = undefined;
     }
+
     const oscillator = engine.audioContext.createOscillator();
     const gainNode = engine.audioContext.createGain();
     oscillator.type = 'sine';
@@ -65,6 +102,16 @@ export const useHearingTest = () => {
     gainNode.gain.setValueAtTime(vol, engine.audioContext.currentTime);
     oscillator.connect(gainNode);
     gainNode.connect(engine.audioContext.destination);
+
+    // FIX: sync React isPlaying state when the oscillator auto-stops at T+10.
+    oscillator.addEventListener('ended', () => {
+      if (engine.oscillator === oscillator) {
+        engine.oscillator = undefined;
+        engine.gainNode = undefined;
+        setIsPlaying(false);
+      }
+    });
+
     oscillator.start();
     oscillator.stop(engine.audioContext.currentTime + 10);
     engine.oscillator = oscillator;
@@ -78,6 +125,8 @@ export const useHearingTest = () => {
       try { engine.oscillator.stop(); } catch (e) {}
       engine.oscillator = undefined;
     }
+    // FIX: always clear gainNode to prevent stale volume updates after stop.
+    if (engine) engine.gainNode = undefined;
   };
 
   const setWebToneVolume = (vol: number) => {
@@ -88,12 +137,26 @@ export const useHearingTest = () => {
     }
   };
 
-  // ── WebView bridge message handlers ──────────────────────────────────────
+  // ── WebView bridge (iOS / Android) ────────────────────────────────────────
 
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'audio_ready') setAudioReady(true);
+      switch (data.type) {
+        case 'audio_ready':
+          setAudioReady(true);
+          break;
+        // FIX: WebView notifies RN when the oscillator auto-stops (T+10 s).
+        // This keeps isPlaying in sync without polling.
+        case 'tone_ended':
+          setIsPlaying(false);
+          break;
+        case 'play_failed':
+          // Audio context couldn't resume — mark as not playing.
+          setIsPlaying(false);
+          console.warn('WebView audio play failed, reason:', data.reason);
+          break;
+      }
     } catch (error) {
       console.error('Error parsing WebView message:', error);
     }
@@ -131,15 +194,7 @@ export const useHearingTest = () => {
     if (isWeb) {
       await playWebTone(currentFrequency, volume);
     } else {
-      webViewRef.current?.injectJavaScript(`
-        (async function() {
-          if (window.initAudio) {
-            try { await window.initAudio(); } catch (e) { console.warn('Audio init failed', e); }
-          }
-          window.playTone(${currentFrequency}, ${volume});
-        })();
-        true;
-      `);
+      webViewRef.current?.injectJavaScript(`window.playTone(${currentFrequency}, ${volume}); true;`);
     }
     setIsPlaying(true);
   };
@@ -168,12 +223,7 @@ export const useHearingTest = () => {
 
   const handleHeard = () => {
     stopFrequency();
-    const newResult: TestResult = {
-      frequency: currentFrequency,
-      heard: true,
-      timestamp: Date.now(),
-    };
-    setResults((prev) => [...prev, newResult]);
+    setResults((prev) => [...prev, { frequency: currentFrequency, heard: true, timestamp: Date.now() }]);
 
     const newLowerBound = Math.max(lowerBound, currentFrequency);
     const newPrecision = upperBound - newLowerBound;
@@ -186,11 +236,9 @@ export const useHearingTest = () => {
 
     let nextFrequency: number;
     if (testPhase === 'ascending') {
-      if (currentFrequency < ASCENDING_PHASE_DOUBLE_UNTIL) {
-        nextFrequency = currentFrequency * 2;
-      } else {
-        nextFrequency = currentFrequency + ASCENDING_PHASE_STEP;
-      }
+      nextFrequency = currentFrequency < ASCENDING_PHASE_DOUBLE_UNTIL
+        ? currentFrequency * 2
+        : currentFrequency + ASCENDING_PHASE_STEP;
       if (nextFrequency > FREQUENCY_MAX) {
         nextFrequency = (newLowerBound + upperBound) / 2;
         setTestPhase('binary-search');
@@ -206,12 +254,7 @@ export const useHearingTest = () => {
 
   const handleNotHeard = () => {
     stopFrequency();
-    const newResult: TestResult = {
-      frequency: currentFrequency,
-      heard: false,
-      timestamp: Date.now(),
-    };
-    setResults((prev) => [...prev, newResult]);
+    setResults((prev) => [...prev, { frequency: currentFrequency, heard: false, timestamp: Date.now() }]);
 
     const newUpperBound = Math.min(upperBound, currentFrequency);
     const newPrecision = newUpperBound - lowerBound;

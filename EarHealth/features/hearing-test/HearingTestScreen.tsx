@@ -46,6 +46,8 @@ export default function HearingTestScreen() {
       style={{ height: 0, width: 0 }}
       originWhitelist={['*']}
       javaScriptEnabled
+      mediaPlaybackRequiresUserAction={false}
+      allowsInlineMediaPlayback
       onMessage={handleWebViewMessage}
       onLoadEnd={handleWebViewLoadEnd}
       onError={(event) => console.error('WebView error', event.nativeEvent)}

@@ -18,82 +18,66 @@ export const WEBVIEW_AUDIO_HTML = `
   </head>
   <body>
     <script>
-      class AudioEngine {
-        constructor() {
-          this.audioContext = null;
-          this.oscillator = null;
-          this.gainNode = null;
-        }
-
-        async init() {
-          if (!this.audioContext) {
-            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          }
-          if (this.audioContext.state === 'suspended') {
-            try {
-              await this.audioContext.resume();
-            } catch (error) {
-              console.warn('AudioContext resume failed', error);
-            }
-          }
-        }
-
-        playTone(frequency, volume) {
-          if (!this.audioContext) {
-            console.error('AudioContext not initialized');
-            return;
-          }
-          this.stopTone();
-          this.oscillator = this.audioContext.createOscillator();
-          this.gainNode = this.audioContext.createGain();
-          this.oscillator.type = 'sine';
-          this.oscillator.frequency.setValueAtTime(frequency, this.audioContext.currentTime);
-          this.gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
-          this.oscillator.connect(this.gainNode);
-          this.gainNode.connect(this.audioContext.destination);
-          this.oscillator.start();
-          this.oscillator.stop(this.audioContext.currentTime + 10);
-        }
-
-        stopTone() {
-          if (this.oscillator) {
-            try { this.oscillator.stop(); } catch (e) {}
-            this.oscillator = null;
-          }
-        }
-
-        setVolume(volume) {
-          if (this.gainNode) {
-            this.gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
-          }
-        }
-      }
-
-      const audioEngine = new AudioEngine();
-
-      function postAudioReady() {
+      function sendToRN(data) {
         if (window.ReactNativeWebView && typeof window.ReactNativeWebView.postMessage === 'function') {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'audio_ready' }));
+          window.ReactNativeWebView.postMessage(JSON.stringify(data));
         }
       }
 
-      window.initAudio = async () => {
-        try { await audioEngine.init(); } catch (error) { console.warn('Audio init failed', error); }
-        postAudioReady();
-      };
+      // Generates a PCM sine wave as a WAV data URI.
+      // Uses <audio> element instead of AudioContext — avoids the iOS WKWebView
+      // restriction where AudioContext.resume() requires a real user gesture but
+      // injectJavaScript() does not qualify as one.
+      // mediaPlaybackRequiresUserAction={false} on the WebView component is what
+      // allows audio.play() to succeed from injectJavaScript on iOS.
+      function generateSineWaveURI(frequency, durationSec) {
+        var sampleRate = 44100;
+        var numSamples = Math.floor(sampleRate * durationSec);
+        var buf = new ArrayBuffer(44 + numSamples * 2);
+        var v = new DataView(buf);
+        function w(off, str) { for (var i = 0; i < str.length; i++) v.setUint8(off + i, str.charCodeAt(i)); }
+        w(0, 'RIFF'); v.setUint32(4, 36 + numSamples * 2, true);
+        w(8, 'WAVE'); w(12, 'fmt ');
+        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+        v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+        v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+        w(36, 'data'); v.setUint32(40, numSamples * 2, true);
+        for (var i = 0; i < numSamples; i++) {
+          v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * frequency * i / sampleRate) * 32767), true);
+        }
+        var bytes = new Uint8Array(buf);
+        var binary = '';
+        for (var i = 0; i < bytes.length; i += 0x8000) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
+        }
+        return 'data:audio/wav;base64,' + btoa(binary);
+      }
 
-      window.playTone = (frequency, volume) => { audioEngine.playTone(frequency, volume); };
-      window.stopTone = () => { audioEngine.stopTone(); };
-      window.setVolume = (volume) => { audioEngine.setVolume(volume); };
+      var audioEl = document.createElement('audio');
+      audioEl.setAttribute('playsinline', '');
+      audioEl.loop = true;
+      audioEl.onerror = function() { sendToRN({ type: 'play_failed', reason: 'audio_error' }); };
 
-      window.onerror = (message, source, lineno, colno, error) => { postAudioReady(); };
-
-      window.onload = () => {
-        window.initAudio().catch((error) => {
-          console.warn('Audio init failed on load', error);
-          postAudioReady();
+      window.playTone = function(frequency, volume) {
+        audioEl.src = generateSineWaveURI(frequency, 3);
+        audioEl.volume = Math.min(1, Math.max(0, volume));
+        audioEl.load();
+        audioEl.play().catch(function(err) {
+          sendToRN({ type: 'play_failed', reason: err && err.message ? err.message : 'rejected' });
         });
       };
+
+      window.stopTone = function() {
+        audioEl.pause();
+        audioEl.currentTime = 0;
+      };
+
+      window.setVolume = function(volume) {
+        audioEl.volume = Math.min(1, Math.max(0, volume));
+      };
+
+      window.onload = function() { sendToRN({ type: 'audio_ready' }); };
+      window.onerror = function() { sendToRN({ type: 'audio_ready' }); };
     <\/script>
   </body>
 </html>
