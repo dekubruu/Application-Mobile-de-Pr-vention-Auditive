@@ -1,90 +1,228 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Colors } from '@/constants/colors';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { WEBVIEW_AUDIO_HTML } from './constants/hearing-test.constants';
 import { useHearingTest } from './hooks/useHearingTest';
-import { TestIntroView } from './components/TestIntroView';
-import { TestingView } from './components/TestingView';
-import { TestResultView } from './components/TestResultView';
+import { ChannelValidationView } from './components/ChannelValidationView';
+import { EnvironmentCheckView }  from './components/EnvironmentCheckView';
+import { EarTransitionView }     from './components/EarTransitionView';
+import { HeadphoneDetectView }   from './components/HeadphoneDetectView';
+import { HeadsetSelectView }     from './components/HeadsetSelectView';
+import { TestingView }           from './components/TestingView';
+import { TestIntroView }         from './components/TestIntroView';
+import { TestResultView }        from './components/TestResultView';
+import { TestWelcomeView }       from './components/TestWelcomeView';
 
 export default function HearingTestScreen() {
+  const { session } = useAuth();
   const {
     webViewRef,
     isWeb,
     audioReady,
-    testStarted,
-    testCompleted,
+    testStage,
+    testMode,
+    currentEar,
+
+    // Ambient
+    ambientStatus,
+    ambientDb,
+    measureAmbient,
+    proceedFromEnvironment,
+
+    // Channel validation
+    cvHasPlayed,
+    cvAttempts,
+    cvLastResult,
     isPlaying,
-    volume,
+    playChannelValidation,
+    handleChannelValidationResponse,
+    skipChannelValidation,
+
+    // Headphone detection
+    headphoneDetection,
+    detectedHeadsetId,
+
+    // Testing
+    freqIndex,
+    totalFrequencies,
     currentFrequency,
-    testPhase,
-    precision,
-    hearingThreshold,
+    frequencyResults,
+    isSilentTrial,
+    falsePositives,
+    silentCount,
+    resultReliable,
+
+    // Results
+    leftEarResults,
+    rightEarResults,
+    monoResults,
+    getEarCategory,
+    saveResults,
+    saveError,
+
+    // Headset select
+    selectHeadset,
+
+    // Actions
+    proceedFromIntro,
+    selectMode,
     startTest,
+    continueToNextPhase,
     cancelTest,
-    playFrequency,
-    stopFrequency,
-    updateVolume,
-    handleHeard,
-    handleNotHeard,
+    retryTest,
+    handleResponse,
+    replayFrequency,
     handleWebViewMessage,
     handleWebViewLoadEnd,
-  } = useHearingTest();
+  } = useHearingTest(session?.user?.id);
 
-  const hiddenWebView = isWeb ? null : (
-    <WebView
-      ref={webViewRef}
-      source={{ html: WEBVIEW_AUDIO_HTML }}
-      style={{ height: 0, width: 0 }}
-      originWhitelist={['*']}
-      javaScriptEnabled
-      mediaPlaybackRequiresUserAction={false}
-      allowsInlineMediaPlayback
-      onMessage={handleWebViewMessage}
-      onLoadEnd={handleWebViewLoadEnd}
-      onError={(event) => console.error('WebView error', event.nativeEvent)}
-    />
-  );
+  const isActiveTest = testStage === 'testing' || testStage === 'ear-transition';
+  const showEarPill  = testStage === 'testing' && testMode === 'headset';
 
   const renderContent = () => {
-    if (testCompleted && hearingThreshold !== null) {
-      return <TestResultView hearingThreshold={hearingThreshold} onRetry={startTest} />;
+    switch (testStage) {
+      case 'intro':
+        return <TestWelcomeView onStart={proceedFromIntro} />;
+
+      case 'environment-check':
+        return (
+          <EnvironmentCheckView
+            status={ambientStatus}
+            ambientDb={ambientDb}
+            onMeasure={measureAmbient}
+            onContinue={proceedFromEnvironment}
+          />
+        );
+
+      case 'headphone-detect':
+        return (
+          <HeadphoneDetectView
+            detection={headphoneDetection}
+            onSelect={selectMode}
+          />
+        );
+
+      case 'channel-validation':
+        return (
+          <ChannelValidationView
+            audioReady={audioReady}
+            isPlaying={isPlaying}
+            hasPlayed={cvHasPlayed}
+            attempts={cvAttempts}
+            lastResult={cvLastResult}
+            onPlay={playChannelValidation}
+            onResponse={handleChannelValidationResponse}
+            onSkip={skipChannelValidation}
+          />
+        );
+
+      case 'headset-select':
+        return (
+          <HeadsetSelectView
+            onSelect={selectHeadset}
+            detectedHeadsetId={detectedHeadsetId}
+          />
+        );
+
+      case 'pre-test':
+        return (
+          <TestIntroView
+            audioReady={audioReady}
+            testMode={testMode}
+            onStart={startTest}
+          />
+        );
+
+      case 'testing':
+        return (
+          <TestingView
+            testMode={testMode}
+            currentEar={currentEar}
+            freqIndex={freqIndex}
+            totalFrequencies={totalFrequencies}
+            currentFrequency={currentFrequency}
+            isPlaying={isPlaying}
+            isSilentTrial={isSilentTrial}
+            frequencyResults={frequencyResults}
+            onReplay={replayFrequency}
+            onResponse={handleResponse}
+          />
+        );
+
+      case 'ear-transition':
+        return (
+          <EarTransitionView
+            leftEarResults={leftEarResults}
+            onContinue={continueToNextPhase}
+          />
+        );
+
+      case 'results':
+        return (
+          <TestResultView
+            testMode={testMode}
+            leftEarResults={leftEarResults}
+            rightEarResults={rightEarResults}
+            monoResults={monoResults}
+            leftCategory={getEarCategory(leftEarResults)}
+            rightCategory={getEarCategory(rightEarResults)}
+            monoCategory={getEarCategory(monoResults)}
+            resultReliable={resultReliable}
+            falsePositives={falsePositives}
+            silentCount={silentCount}
+            saveError={saveError}
+            onRetry={retryTest}
+            onSave={saveResults}
+          />
+        );
     }
-    if (testStarted) {
-      return (
-        <TestingView
-          currentFrequency={currentFrequency}
-          isPlaying={isPlaying}
-          volume={volume}
-          testPhase={testPhase}
-          precision={precision}
-          onPlay={playFrequency}
-          onStop={stopFrequency}
-          onVolumeChange={updateVolume}
-          onHeard={handleHeard}
-          onNotHeard={handleNotHeard}
-        />
-      );
-    }
-    return <TestIntroView audioReady={audioReady} onStart={startTest} />;
   };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {hiddenWebView}
+      {/* Hidden WebView audio bridge for iOS / Android */}
+      {!isWeb && (
+        <WebView
+          ref={webViewRef}
+          source={{ html: WEBVIEW_AUDIO_HTML }}
+          style={{ height: 0, width: 0 }}
+          originWhitelist={['*']}
+          javaScriptEnabled
+          mediaPlaybackRequiresUserAction={false}
+          allowsInlineMediaPlayback
+          onMessage={handleWebViewMessage}
+          onLoadEnd={handleWebViewLoadEnd}
+          onError={(event) => console.error('WebView error', event.nativeEvent)}
+        />
+      )}
 
       <View style={styles.header}>
         <View style={styles.headerSide}>
-          {testStarted && !testCompleted && (
+          {isActiveTest && (
             <Pressable onPress={cancelTest} style={styles.cancelBtn}>
               <Text style={styles.cancelText}>Annuler</Text>
             </Pressable>
           )}
         </View>
         <Text style={styles.headerTitle}>HearSafe</Text>
-        <View style={styles.headerSide} />
+        <View style={styles.headerSide}>
+          {showEarPill && (
+            <View style={styles.earPill}>
+              <Ionicons
+                name={currentEar === 'left' ? 'arrow-back' : 'arrow-forward'}
+                size={13}
+                color={Colors.primary}
+              />
+              <Text style={styles.earPillText}>
+                {currentEar === 'left' ? 'G' : 'D'}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView
@@ -98,10 +236,7 @@ export default function HearingTestScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
+  safe: { flex: 1, backgroundColor: Colors.background },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -112,26 +247,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
   },
-  headerSide: {
-    width: 80,
+  headerSide:  { width: 80 },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: Colors.text, letterSpacing: -0.3 },
+  cancelBtn:   { paddingVertical: 6, paddingHorizontal: 2 },
+  cancelText:  { fontSize: 15, fontWeight: '500', color: Colors.primary },
+  earPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-end',
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.text,
-    letterSpacing: -0.3,
-  },
-  cancelBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 2,
-  },
-  cancelText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: Colors.primary,
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 40,
-  },
+  earPillText: { fontSize: 13, fontWeight: '800', color: Colors.primary },
+  content: { padding: 16, paddingBottom: 40 },
 });

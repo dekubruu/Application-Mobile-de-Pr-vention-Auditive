@@ -15,9 +15,11 @@ function NavigationGuard() {
 
     const inAuth = (segments as string[])[0] === '(auth)';
 
+    const inTabs = (segments as string[])[0] === '(tabs)';
+
     if (!session && !inAuth) {
       router.replace('/(auth)/login' as any);
-    } else if (session && inAuth) {
+    } else if (session && !inTabs) {
       router.replace('/(tabs)/test' as any);
     }
   }, [rootNavState?.key, session, loading, segments]);
