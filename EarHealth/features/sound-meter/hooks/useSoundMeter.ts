@@ -1,29 +1,32 @@
-import { Audio } from 'expo-av';
+import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { LEVEL_HISTORY_SIZE, getSoundLevelCategory } from '../constants/sound-level.constants';
 
 export const useSoundMeter = () => {
-  const [isMeasuring, setIsMeasuring] = useState(false);
-  const [soundLevel, setSoundLevel] = useState(0);
-  const [averageLevel, setAverageLevel] = useState(0);
-  const [statusMessage, setStatusMessage] = useState('Prêt');
+  const [isMeasuring,    setIsMeasuring]    = useState(false);
+  const [soundLevel,     setSoundLevel]     = useState(0);
+  const [averageLevel,   setAverageLevel]   = useState(0);
+  const [statusMessage,  setStatusMessage]  = useState('Prêt');
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
   const webAudioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const webSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const rafRef = useRef<number | null>(null);
-  const levelHistoryRef = useRef<number[]>([]);
+  const analyserRef        = useRef<AnalyserNode | null>(null);
+  const webSourceRef       = useRef<MediaStreamAudioSourceNode | null>(null);
+  const rafRef             = useRef<number | null>(null);
+  const intervalRef        = useRef<ReturnType<typeof setInterval> | null>(null);
+  const levelHistoryRef    = useRef<number[]>([]);
 
   const isWeb = Platform.OS === 'web';
 
-  // cleanup on unmount
+  // useAudioRecorder manages lifecycle — auto-released on unmount
+  const recorder = useAudioRecorder({ isMeteringEnabled: true });
+
   useEffect(() => {
     return () => {
       stopWebMeter();
       stopNativeMeter();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const normalizeDb = (db: number) => Math.max(0, Math.min(120, Math.round(db)));
@@ -43,15 +46,12 @@ export const useSoundMeter = () => {
   // ── Web measurement ───────────────────────────────────────────────────────
 
   const handleWebMeter = (analyser: AnalyserNode) => {
-    const bufferLength = analyser.fftSize;
-    const dataArray = new Float32Array(bufferLength);
+    const dataArray = new Float32Array(analyser.fftSize);
     analyser.getFloatTimeDomainData(dataArray);
 
     let sumSquares = 0;
-    for (let i = 0; i < bufferLength; i++) {
-      sumSquares += dataArray[i] * dataArray[i];
-    }
-    const rms = Math.sqrt(sumSquares / bufferLength);
+    for (let i = 0; i < dataArray.length; i++) sumSquares += dataArray[i] * dataArray[i];
+    const rms = Math.sqrt(sumSquares / dataArray.length);
     let db = 20 * Math.log10(rms);
     if (!isFinite(db)) db = -160;
 
@@ -81,13 +81,12 @@ export const useSoundMeter = () => {
       source.connect(analyser);
 
       webAudioContextRef.current = audioContext;
-      analyserRef.current = analyser;
-      webSourceRef.current = source;
+      analyserRef.current        = analyser;
+      webSourceRef.current       = source;
 
       handleWebMeter(analyser);
       setStatusMessage('Mesure en cours');
-    } catch (error) {
-      console.error(error);
+    } catch {
       setStatusMessage('Permission microphone refusée');
     }
   };
@@ -102,55 +101,44 @@ export const useSoundMeter = () => {
       webAudioContextRef.current = null;
     }
     if (webSourceRef.current) {
-      webSourceRef.current.mediaStream.getTracks().forEach((t) => t.stop());
+      webSourceRef.current.mediaStream.getTracks().forEach(t => t.stop());
       webSourceRef.current = null;
     }
     analyserRef.current = null;
   };
 
-  // ── Native measurement (expo-av) ──────────────────────────────────────────
-
-  const handleRecordingStatus = (status: any) => {
-    if (!status.isRecording) return;
-    if (typeof status.metering === 'number') {
-      updateSoundLevel(normalizeDb(status.metering + 80));
-    }
-  };
+  // ── Native measurement (expo-audio) ──────────────────────────────────────
 
   const startNativeMeter = async () => {
     try {
-      const response = await Audio.requestPermissionsAsync();
-      if (!response.granted) {
+      const { granted } = await requestRecordingPermissionsAsync();
+      if (!granted) {
         setStatusMessage('Autorisation microphone refusée');
         return;
       }
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording:   true,
+        playsInSilentMode: true,
       });
-      const recording = new Audio.Recording();
-      await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      recording.setOnRecordingStatusUpdate(handleRecordingStatus);
-      recording.setProgressUpdateInterval(200);
-      await recording.startAsync();
-      recordingRef.current = recording;
+      await recorder.prepareToRecordAsync({ isMeteringEnabled: true });
+      recorder.record();
+
+      intervalRef.current = setInterval(() => {
+        const state = recorder.getStatus();
+        if (state.isRecording && typeof state.metering === 'number') {
+          updateSoundLevel(normalizeDb(state.metering + 80));
+        }
+      }, 200);
+
       setStatusMessage('Mesure en cours');
-    } catch (error) {
-      console.error(error);
+    } catch {
       setStatusMessage('Échec démarrage microphone');
     }
   };
 
   const stopNativeMeter = async () => {
-    try {
-      const recording = recordingRef.current;
-      if (recording) {
-        await recording.stopAndUnloadAsync();
-        recordingRef.current = null;
-      }
-    } catch (error) {
-      console.error(error);
-    }
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    try { await recorder.stop(); } catch {}
   };
 
   // ── Public API ────────────────────────────────────────────────────────────
@@ -159,33 +147,22 @@ export const useSoundMeter = () => {
     setSoundLevel(0);
     setIsMeasuring(true);
     setStatusMessage('Démarrage...');
-    if (isWeb) {
-      await startWebMeter();
-    } else {
-      await startNativeMeter();
-    }
+    if (isWeb) await startWebMeter();
+    else        await startNativeMeter();
   };
 
   const stopMeasurement = async () => {
     setIsMeasuring(false);
     setStatusMessage('Arrêté');
     setSoundLevel(0);
-    if (isWeb) {
-      stopWebMeter();
-    } else {
-      await stopNativeMeter();
-    }
+    if (isWeb) stopWebMeter();
+    else        await stopNativeMeter();
   };
 
   const toggleMeasure = async () => {
-    if (isMeasuring) {
-      await stopMeasurement();
-    } else {
-      await startMeasurement();
-    }
+    if (isMeasuring) await stopMeasurement();
+    else              await startMeasurement();
   };
-
-  const category = getSoundLevelCategory(soundLevel);
 
   return {
     isWeb,
@@ -193,7 +170,7 @@ export const useSoundMeter = () => {
     soundLevel,
     averageLevel,
     statusMessage,
-    category,
+    category: getSoundLevelCategory(soundLevel),
     toggleMeasure,
   };
 };

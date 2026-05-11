@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useRef } from 'react';
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { Colors } from '@/constants/colors';
@@ -18,7 +19,8 @@ import { TestResultView }        from './components/TestResultView';
 import { TestWelcomeView }       from './components/TestWelcomeView';
 
 export default function HearingTestScreen() {
-  const { session } = useAuth();
+  const router       = useRouter();
+  const { session }  = useAuth();
   const {
     webViewRef,
     isWeb,
@@ -82,6 +84,35 @@ export default function HearingTestScreen() {
 
   const isActiveTest = testStage === 'testing' || testStage === 'ear-transition';
   const showEarPill  = testStage === 'testing' && testMode === 'headset';
+
+  // Fade in content whenever the stage changes
+  const fadeAnim     = useRef(new Animated.Value(1)).current;
+  const prevStageRef = useRef(testStage);
+  useEffect(() => {
+    if (prevStageRef.current === testStage) return;
+    prevStageRef.current = testStage;
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1, duration: 280,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [testStage]);
+
+  const handleQuit = () => {
+    if (isActiveTest) {
+      Alert.alert(
+        'Quitter le test',
+        'Le test en cours sera annulé. Voulez-vous vraiment quitter ?',
+        [
+          { text: 'Rester',  style: 'cancel' },
+          { text: 'Quitter', style: 'destructive', onPress: () => { cancelTest(); router.back(); } },
+        ],
+      );
+    } else {
+      router.back();
+    }
+  };
 
   const renderContent = () => {
     switch (testStage) {
@@ -202,11 +233,9 @@ export default function HearingTestScreen() {
 
       <View style={styles.header}>
         <View style={styles.headerSide}>
-          {isActiveTest && (
-            <Pressable onPress={cancelTest} style={styles.cancelBtn}>
-              <Text style={styles.cancelText}>Annuler</Text>
-            </Pressable>
-          )}
+          <Pressable onPress={handleQuit} style={styles.cancelBtn} hitSlop={8}>
+            <Ionicons name="close" size={24} color={Colors.textSecondary} />
+          </Pressable>
         </View>
         <Text style={styles.headerTitle}>HearSafe</Text>
         <View style={styles.headerSide}>
@@ -229,7 +258,9 @@ export default function HearingTestScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {renderContent()}
+        <Animated.View style={{ opacity: fadeAnim }}>
+          {renderContent()}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -244,8 +275,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     backgroundColor: Colors.surface,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
   },
   headerSide:  { width: 80 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: Colors.text, letterSpacing: -0.3 },

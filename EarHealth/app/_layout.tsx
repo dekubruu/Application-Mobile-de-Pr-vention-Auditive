@@ -13,13 +13,14 @@ function NavigationGuard() {
     if (!rootNavState?.key) return;
     if (loading) return;
 
-    const inAuth = (segments as string[])[0] === '(auth)';
-
-    const inTabs = (segments as string[])[0] === '(tabs)';
+    const seg0            = (segments as string[])[0];
+    const inAuth          = seg0 === '(auth)';
+    const inTabs          = seg0 === '(tabs)';
+    const inHearingTest   = seg0 === 'hearing-test';
 
     if (!session && !inAuth) {
       router.replace('/(auth)/login' as any);
-    } else if (session && !inTabs) {
+    } else if (session && !inTabs && !inHearingTest) {
       router.replace('/(tabs)/test' as any);
     }
   }, [rootNavState?.key, session, loading, segments]);

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Colors } from '@/constants/colors';
@@ -37,25 +37,28 @@ interface TestResultViewProps {
 
 // ── Hearing score ring ────────────────────────────────────────────────────────
 
-const ScoreRing: React.FC<{ score: number; color: string; bg: string }> = ({ score, color, bg }) => {
-  const anim = useRef(new Animated.Value(0)).current;
-
+function useCountUp(target: number): number {
+  const [val, setVal] = useState(0);
   useEffect(() => {
-    Animated.timing(anim, {
-      toValue: score,
-      duration: 1000,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [score]);
+    const steps = 40;
+    const interval = 900 / steps;
+    let step = 0;
+    const id = setInterval(() => {
+      step++;
+      const eased = 1 - Math.pow(1 - step / steps, 3);
+      setVal(Math.round(eased * target));
+      if (step >= steps) clearInterval(id);
+    }, interval);
+    return () => clearInterval(id);
+  }, [target]);
+  return val;
+}
 
+const ScoreRing: React.FC<{ score: number; color: string; bg: string }> = ({ score, color, bg }) => {
+  const display = useCountUp(score);
   return (
     <View style={[styles.scoreRing, { backgroundColor: bg }]}>
-      <Animated.Text style={[styles.scoreValue, { color }]}>
-        {anim.interpolate({ inputRange: [0, 100], outputRange: ['0', '100'] }).__getValue
-          ? score
-          : score}
-      </Animated.Text>
+      <Text style={[styles.scoreValue, { color }]}>{display}</Text>
       <Text style={[styles.scoreMax, { color }]}>/100</Text>
     </View>
   );
@@ -363,11 +366,10 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     flexDirection: 'row',
-    alignItems: 'flex-end' as any,
-    paddingBottom: 4,
+    paddingBottom: 6,
   },
   scoreValue: { fontSize: 32, fontWeight: '700', letterSpacing: -1 },
   scoreMax:   { fontSize: 14, fontWeight: '600', marginBottom: 5 },

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
 import { Colors } from '@/constants/colors';
@@ -39,13 +40,15 @@ const REQUIREMENTS = [
 export const TestWelcomeView: React.FC<TestWelcomeViewProps> = ({ onStart }) => (
   <>
     <View style={styles.hero}>
-      <View style={styles.iconRing}>
-        <Ionicons name="ear-outline" size={52} color={Colors.primary} />
-      </View>
+      <LinearGradient
+        colors={['#E0F2F7', '#C7EBF3', '#E0F2F7']}
+        style={styles.iconRing}
+      >
+        <Ionicons name="ear-outline" size={54} color={Colors.primary} />
+      </LinearGradient>
       <Text style={styles.heroTitle}>Test Auditif</Text>
       <Text style={styles.heroSubtitle}>
-        Évaluez votre audition avec un test adaptatif inspiré de l'audiométrie professionnelle.
-        Non clinique — indicatif uniquement.
+        Évaluez votre audition avec un algorithme adaptatif inspiré de l'audiométrie professionnelle.
       </Text>
     </View>
 
@@ -90,13 +93,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   iconRing: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: Colors.primaryLight,
+    width: 108,
+    height: 108,
+    borderRadius: 54,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+    ...Platform.select({
+      ios:     { shadowColor: Colors.primary, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 16 },
+      android: { elevation: 4 },
+    }),
   },
   heroTitle: {
     fontSize: 30,

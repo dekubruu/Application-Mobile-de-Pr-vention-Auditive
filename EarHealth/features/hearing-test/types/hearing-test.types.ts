@@ -42,19 +42,25 @@ export interface TestResult {
 }
 
 export interface HearingTestSavePayload {
-  testMode:      TestMode;
-  headsetId:     string | null;
-  leftEarData:   FrequencyThreshold[];
-  rightEarData:  FrequencyThreshold[];
-  monoData:      FrequencyThreshold[];
-  leftAvgDb:     number | null;
-  rightAvgDb:    number | null;
-  monoAvgDb:     number | null;
-  leftScore:     number | null;
-  rightScore:    number | null;
-  falsePosRatio: number;
-  reliable:      boolean;
-  ambientDb:     number | null;
+  testMode:            TestMode;
+  headsetId:           string | null;
+  leftEarData:         FrequencyThreshold[];
+  rightEarData:        FrequencyThreshold[];
+  monoData:            FrequencyThreshold[];
+  leftAvgDb:           number | null;
+  rightAvgDb:          number | null;
+  monoAvgDb:           number | null;
+  leftScore:           number | null;
+  rightScore:          number | null;
+  monoScore:           number | null;
+  falsePosRatio:       number;
+  reliable:            boolean;
+  ambientDb:           number | null;
+  platform:            string;
+  startedAt:           Date;
+  completedAt:         Date;
+  testDurationSeconds: number;
+  environmentWarning:  boolean;
 }
 
 export interface WebAudioEngine {

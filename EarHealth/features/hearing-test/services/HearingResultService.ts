@@ -35,20 +35,26 @@ export async function saveHearingTestResult(
   const { data, error } = await supabase
     .from('hearing_test_results')
     .insert({
-      user_id:        userId,
-      test_mode:      payload.testMode,
-      headset_id:     payload.headsetId,
-      left_ear_data:  payload.leftEarData,
-      right_ear_data: payload.rightEarData,
-      mono_data:      payload.monoData,
-      left_avg_db:    payload.leftAvgDb,
-      right_avg_db:   payload.rightAvgDb,
-      mono_avg_db:    payload.monoAvgDb,
-      left_score:     payload.leftScore,
-      right_score:    payload.rightScore,
-      false_pos_ratio: payload.falsePosRatio,
-      reliable:       payload.reliable,
-      ambient_db:     payload.ambientDb,
+      user_id:             userId,
+      test_mode:           payload.testMode,
+      headset_id:          payload.headsetId,
+      left_ear_data:       payload.leftEarData,
+      right_ear_data:      payload.rightEarData,
+      mono_data:           payload.monoData,
+      left_avg_db:         payload.leftAvgDb,
+      right_avg_db:        payload.rightAvgDb,
+      mono_avg_db:         payload.monoAvgDb,
+      left_score:          payload.leftScore,
+      right_score:         payload.rightScore,
+      mono_score:          payload.monoScore,
+      false_pos_ratio:     payload.falsePosRatio,
+      reliable:            payload.reliable,
+      ambient_db:          payload.ambientDb,
+      platform:            payload.platform,
+      started_at:          payload.startedAt.toISOString(),
+      completed_at:        payload.completedAt.toISOString(),
+      test_duration_s:     payload.testDurationSeconds,
+      environment_warning: payload.environmentWarning,
     })
     .select('id')
     .single();
@@ -57,7 +63,39 @@ export async function saveHearingTestResult(
     console.warn('[HearingResultService] save failed:', error.message);
     return null;
   }
-  return (data as any)?.id ?? null;
+
+  const testId = (data as any)?.id as string | undefined;
+  if (!testId) return null;
+
+  // Batch-insert normalized frequency results — non-blocking, failure is non-fatal
+  const freqRows = [
+    ...payload.leftEarData.map(r => ({
+      test_id: testId, ear_side: 'left',
+      frequency_hz: r.frequency, threshold_db: r.dbLevel,
+      presentations: r.presentations, reliable: r.reliable,
+    })),
+    ...payload.rightEarData.map(r => ({
+      test_id: testId, ear_side: 'right',
+      frequency_hz: r.frequency, threshold_db: r.dbLevel,
+      presentations: r.presentations, reliable: r.reliable,
+    })),
+    ...payload.monoData.map(r => ({
+      test_id: testId, ear_side: 'mono',
+      frequency_hz: r.frequency, threshold_db: r.dbLevel,
+      presentations: r.presentations, reliable: r.reliable,
+    })),
+  ];
+
+  if (freqRows.length > 0) {
+    supabase
+      .from('hearing_test_freq_results')
+      .insert(freqRows)
+      .then(({ error: freqErr }) => {
+        if (freqErr) console.warn('[HearingResultService] freq insert failed:', freqErr.message);
+      });
+  }
+
+  return testId;
 }
 
 export async function getHearingTestHistory(

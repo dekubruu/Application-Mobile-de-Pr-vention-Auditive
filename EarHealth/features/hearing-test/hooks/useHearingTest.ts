@@ -51,19 +51,29 @@ export const useHearingTest = (userId?: string) => {
   const webAudioEngineRef   = useRef<WebAudioEngine | null>(null);
   const autoPlayTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastResponseTimeRef = useRef(0);
-  const toneStartTimeRef    = useRef(0); // for response-before-tone guard
+  const toneStartTimeRef    = useRef(0);
   const isWeb               = Platform.OS === 'web';
 
   // ── Refs for algorithm state (immune to React Compiler stale closures) ────
-  const hwStateRef            = useRef<HWFreqState>(makeInitialHWState());
-  const freqIndexRef          = useRef(0);
-  const frequencyResultsRef   = useRef<FrequencyThreshold[]>([]);
-  const isSilentTrialRef      = useRef(false);
-  const currentEarRef         = useRef<Ear>('left');
-  const testModeRef           = useRef<TestMode>('headset');
-  const cvTargetEarRef        = useRef<Ear>('left');
+  const hwStateRef          = useRef<HWFreqState>(makeInitialHWState());
+  const freqIndexRef        = useRef(0);
+  const frequencyResultsRef = useRef<FrequencyThreshold[]>([]);
+  const isSilentTrialRef    = useRef(false);
+  const currentEarRef       = useRef<Ear>('left');
+  const testModeRef         = useRef<TestMode>('headset');
+  const cvTargetEarRef      = useRef<Ear>('left');
 
-  // ── Ambient noise (from dedicated hook) ──────────────────────────────────
+  // ── Refs for auto-save (safe to read in async callbacks) ─────────────────
+  const testStartedAtRef     = useRef<Date | null>(null);
+  const falsePositivesRef    = useRef(0);
+  const silentCountRef       = useRef(0);
+  const leftEarResultsRef    = useRef<FrequencyThreshold[]>([]);
+  const rightEarResultsRef   = useRef<FrequencyThreshold[]>([]);
+  const monoResultsRef       = useRef<FrequencyThreshold[]>([]);
+  const selectedHeadsetIdRef = useRef<string | null>(null);
+  const ambientDbRef         = useRef<number | null>(null);
+
+  // ── Ambient noise ─────────────────────────────────────────────────────────
   const ambient = useAmbientCheck();
 
   // ── Flow ──────────────────────────────────────────────────────────────────
@@ -98,6 +108,8 @@ export const useHearingTest = (userId?: string) => {
   const [leftEarResults,   setLeftEarResults]   = useState<FrequencyThreshold[]>([]);
   const [rightEarResults,  setRightEarResults]  = useState<FrequencyThreshold[]>([]);
   const [monoResults,      setMonoResults]      = useState<FrequencyThreshold[]>([]);
+  const [isSaving,         setIsSaving]         = useState(false);
+  const [isSaved,          setIsSaved]          = useState(false);
   const [saveError,        setSaveError]        = useState<string | null>(null);
 
   // ── Ref-synced setters ────────────────────────────────────────────────────
@@ -119,6 +131,18 @@ export const useHearingTest = (userId?: string) => {
   };
   const setTestModeSynced = (m: TestMode) => {
     testModeRef.current = m; setTestMode(m);
+  };
+  const setLeftEarResultsSynced = (r: FrequencyThreshold[]) => {
+    leftEarResultsRef.current = r; setLeftEarResults(r);
+  };
+  const setRightEarResultsSynced = (r: FrequencyThreshold[]) => {
+    rightEarResultsRef.current = r; setRightEarResults(r);
+  };
+  const setMonoResultsSynced = (r: FrequencyThreshold[]) => {
+    monoResultsRef.current = r; setMonoResults(r);
+  };
+  const setSelectedHeadsetIdSynced = (id: string | null) => {
+    selectedHeadsetIdRef.current = id; setSelectedHeadsetId(id);
   };
 
   // ── Platform setup & cleanup ──────────────────────────────────────────────
@@ -247,7 +271,7 @@ export const useHearingTest = (userId?: string) => {
     if (!autoPlayPending || testStage !== 'testing' || !audioReady) return;
     setAutoPlayPending(false);
 
-    if (isSilentTrialRef.current) return; // no tone for silent trial
+    if (isSilentTrialRef.current) return;
 
     const freq = TEST_FREQUENCIES[freqIndexRef.current];
     const vol  = dbToVolume(hwStateRef.current.currentDb);
@@ -303,21 +327,89 @@ export const useHearingTest = (userId?: string) => {
     }
   };
 
+  // ── Auto-save ─────────────────────────────────────────────────────────────
+
+  const _autoSave = async ({
+    leftRes,
+    rightRes,
+    monoRes,
+  }: {
+    leftRes:  FrequencyThreshold[];
+    rightRes: FrequencyThreshold[];
+    monoRes:  FrequencyThreshold[];
+  }) => {
+    if (!userId) {
+      setIsSaving(false);
+      return;
+    }
+
+    const completedAt = new Date();
+    const startedAt   = testStartedAtRef.current ?? completedAt;
+    const durationSec = Math.round((completedAt.getTime() - startedAt.getTime()) / 1000);
+
+    const leftAvg  = leftRes.length  ? averageDb(leftRes)  : null;
+    const rightAvg = rightRes.length ? averageDb(rightRes) : null;
+    const monoAvg  = monoRes.length  ? averageDb(monoRes)  : null;
+
+    const fp      = falsePositivesRef.current;
+    const sc      = silentCountRef.current;
+    const fpRatio = sc > 0 ? fp / sc : 0;
+
+    const payload: HearingTestSavePayload = {
+      testMode:            testModeRef.current,
+      headsetId:           selectedHeadsetIdRef.current,
+      leftEarData:         leftRes,
+      rightEarData:        rightRes,
+      monoData:            monoRes,
+      leftAvgDb:           leftAvg,
+      rightAvgDb:          rightAvg,
+      monoAvgDb:           monoAvg,
+      leftScore:           leftAvg  !== null ? calculateHearingScore(leftAvg)  : null,
+      rightScore:          rightAvg !== null ? calculateHearingScore(rightAvg) : null,
+      monoScore:           monoAvg  !== null ? calculateHearingScore(monoAvg)  : null,
+      falsePosRatio:       fpRatio,
+      reliable:            sc === 0 || fpRatio <= 0.4,
+      ambientDb:           ambientDbRef.current,
+      platform:            Platform.OS,
+      startedAt,
+      completedAt,
+      testDurationSeconds: durationSec,
+      environmentWarning:  (ambientDbRef.current ?? 0) > 40,
+    };
+
+    try {
+      const id = await saveHearingTestResult(userId, payload);
+      setIsSaving(false);
+      if (id) {
+        setIsSaved(true);
+      } else {
+        setSaveError('Échec de la sauvegarde. Vérifiez votre connexion.');
+      }
+    } catch (_) {
+      setIsSaving(false);
+      setSaveError('Échec de la sauvegarde. Vérifiez votre connexion.');
+    }
+  };
+
   // ── H-W algorithm ─────────────────────────────────────────────────────────
 
   const finishEarTest = (results: FrequencyThreshold[]) => {
     stopFrequency();
     if (testModeRef.current === 'speaker') {
-      setMonoResults(results);
+      setMonoResultsSynced(results);
+      setIsSaving(true);
       setTestStage('results');
+      _autoSave({ leftRes: [], rightRes: [], monoRes: results });
       return;
     }
     if (currentEarRef.current === 'left') {
-      setLeftEarResults(results);
+      setLeftEarResultsSynced(results);
       setTestStage('ear-transition');
     } else {
-      setRightEarResults(results);
+      setRightEarResultsSynced(results);
+      setIsSaving(true);
       setTestStage('results');
+      _autoSave({ leftRes: leftEarResultsRef.current, rightRes: results, monoRes: [] });
     }
   };
 
@@ -354,17 +446,19 @@ export const useHearingTest = (userId?: string) => {
 
   const handleResponse = (heard: boolean) => {
     const now = Date.now();
-    // Debounce rapid taps
     if (now - lastResponseTimeRef.current < MIN_RESPONSE_INTERVAL_MS) return;
-    // Guard: ignore response if tone just started (likely touch carry-over)
     if (now - toneStartTimeRef.current < TONE_START_GUARD_MS) return;
     lastResponseTimeRef.current = now;
 
     stopFrequency();
 
     if (isSilentTrialRef.current) {
-      if (heard) setFalsePositives(prev => prev + 1);
-      setSilentCount(prev => prev + 1);
+      if (heard) {
+        falsePositivesRef.current += 1;
+        setFalsePositives(falsePositivesRef.current);
+      }
+      silentCountRef.current += 1;
+      setSilentCount(silentCountRef.current);
       setIsSilentTrialSynced(false);
       setAutoPlayPending(true);
       return;
@@ -375,13 +469,13 @@ export const useHearingTest = (userId?: string) => {
 
   // ── Flow actions ──────────────────────────────────────────────────────────
 
-  // Step 1: from intro
   const proceedFromIntro = () => setTestStage('environment-check');
 
-  // Step 2: from environment-check
-  const proceedFromEnvironment = () => setTestStage('headphone-detect');
+  const proceedFromEnvironment = () => {
+    ambientDbRef.current = ambient.ambientDb;
+    setTestStage('headphone-detect');
+  };
 
-  // Step 3: from headphone-detect
   const selectMode = (mode: TestMode) => {
     setTestModeSynced(mode);
     if (mode === 'headset') {
@@ -394,7 +488,6 @@ export const useHearingTest = (userId?: string) => {
     }
   };
 
-  // Step 4: channel validation
   const playChannelValidation = () => {
     if (!audioReady) return;
     stopFrequency();
@@ -424,67 +517,50 @@ export const useHearingTest = (userId?: string) => {
 
   const skipChannelValidation = () => setTestStage('headset-select');
 
-  // Step 5: headset select
   const selectHeadset = (modelId: string | null) => {
-    setSelectedHeadsetId(modelId);
+    setSelectedHeadsetIdSynced(modelId);
     setTestStage('pre-test');
   };
 
-  // Step 6: pre-test
   const startTest = () => {
     if (!audioReady) {
       Alert.alert('Audio non prêt', 'Veuillez patienter quelques secondes…');
       return;
     }
     resetTestState();
+    testStartedAtRef.current = new Date();
     setTestStage('testing');
     setAutoPlayPending(true);
   };
 
-  // Step 7/8: ear transition
   const continueToNextPhase = () => {
     setCurrentEarSynced('right');
     setFreqIndexSynced(0);
     setHwStateSynced(makeInitialHWState());
     setIsSilentTrialSynced(false);
+    falsePositivesRef.current = 0;
     setFalsePositives(0);
+    silentCountRef.current = 0;
     setSilentCount(0);
     setFrequencyResultsSynced([]);
     setTestStage('testing');
     setAutoPlayPending(true);
   };
 
-  // Results save
-  const saveResults = async () => {
-    if (!userId) return;
-    const leftAvg  = leftEarResults.length  ? averageDb(leftEarResults)  : null;
-    const rightAvg = rightEarResults.length ? averageDb(rightEarResults) : null;
-    const monoAvg  = monoResults.length     ? averageDb(monoResults)     : null;
-
-    const payload: HearingTestSavePayload = {
-      testMode:      testMode,
-      headsetId:     selectedHeadsetId,
-      leftEarData:   leftEarResults,
-      rightEarData:  rightEarResults,
-      monoData:      monoResults,
-      leftAvgDb:     leftAvg,
-      rightAvgDb:    rightAvg,
-      monoAvgDb:     monoAvg,
-      leftScore:     leftAvg  !== null ? calculateHearingScore(leftAvg)  : null,
-      rightScore:    rightAvg !== null ? calculateHearingScore(rightAvg) : null,
-      falsePosRatio: silentCount > 0 ? falsePositives / silentCount : 0,
-      reliable:      silentCount === 0 || falsePositives / silentCount <= 0.4,
-      ambientDb:     ambient.ambientDb,
-    };
-
-    const id = await saveHearingTestResult(userId, payload);
-    if (!id) setSaveError('Échec de la sauvegarde. Vérifiez votre connexion.');
+  const retrySave = () => {
+    setSaveError(null);
+    setIsSaved(false);
+    setIsSaving(true);
+    _autoSave({
+      leftRes:  leftEarResultsRef.current,
+      rightRes: rightEarResultsRef.current,
+      monoRes:  monoResultsRef.current,
+    });
   };
 
   const cancelTest = () => {
     stopFrequency();
     resetTestState();
-    setTestStage('pre-test');
   };
 
   const retryTest = () => {
@@ -499,14 +575,19 @@ export const useHearingTest = (userId?: string) => {
     setFreqIndexSynced(0);
     setHwStateSynced(makeInitialHWState());
     setIsSilentTrialSynced(false);
+    falsePositivesRef.current = 0;
     setFalsePositives(0);
+    silentCountRef.current = 0;
     setSilentCount(0);
     setFrequencyResultsSynced([]);
-    setLeftEarResults([]);
-    setRightEarResults([]);
-    setMonoResults([]);
+    setLeftEarResultsSynced([]);
+    setRightEarResultsSynced([]);
+    setMonoResultsSynced([]);
     setAutoPlayPending(false);
+    setIsSaving(false);
+    setIsSaved(false);
     setSaveError(null);
+    testStartedAtRef.current = null;
   };
 
   // ── Derived values ────────────────────────────────────────────────────────
@@ -567,8 +648,10 @@ export const useHearingTest = (userId?: string) => {
     rightEarResults,
     monoResults,
     getEarCategory,
-    saveResults,
+    isSaving,
+    isSaved,
     saveError,
+    retrySave,
 
     // Actions
     proceedFromIntro,

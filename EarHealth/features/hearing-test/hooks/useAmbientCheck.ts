@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { AMBIENT_OK_DB, AMBIENT_WARN_DB } from '../constants/hearing-test.constants';
@@ -18,19 +18,18 @@ export function useAmbientCheck(): AmbientCheckResult {
   const [status,    setStatus]    = useState<AmbientStatus>('idle');
   const [ambientDb, setAmbientDb] = useState<number | null>(null);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const samplesRef   = useRef<number[]>([]);
-  const timerRef     = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isWeb        = Platform.OS === 'web';
+  const samplesRef  = useRef<number[]>([]);
+  const timerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isWeb       = Platform.OS === 'web';
+
+  // useAudioRecorder manages recorder lifecycle (auto-released on unmount)
+  const recorder = useAudioRecorder({ isMeteringEnabled: true });
 
   const cleanup = async () => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    if (recordingRef.current) {
-      try {
-        await recordingRef.current.stopAndUnloadAsync();
-      } catch (_) {}
-      recordingRef.current = null;
-    }
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (timerRef.current)    { clearTimeout(timerRef.current);     timerRef.current    = null; }
+    try { await recorder.stop(); } catch (_) {}
   };
 
   useEffect(() => {
@@ -48,7 +47,7 @@ export function useAmbientCheck(): AmbientCheckResult {
     await cleanup();
     const samples = samplesRef.current;
     if (!samples.length) {
-      setStatus('ok'); // permission denied or empty — don't block the test
+      setStatus('ok');
       setAmbientDb(null);
       return;
     }
@@ -58,32 +57,28 @@ export function useAmbientCheck(): AmbientCheckResult {
   };
 
   const measureNative = async () => {
-    const { granted } = await Audio.requestPermissionsAsync();
+    const { granted } = await requestRecordingPermissionsAsync();
     if (!granted) {
-      setStatus('ok'); // graceful degradation — don't block the test
+      setStatus('ok');
       return;
     }
 
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: true,
-      playsInSilentModeIOS: true,
+    await setAudioModeAsync({
+      allowsRecording:  true,
+      playsInSilentMode: true,
     });
 
     samplesRef.current = [];
-    const recording = new Audio.Recording();
-    await recording.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+    await recorder.prepareToRecordAsync({ isMeteringEnabled: true });
+    recorder.record();
 
-    recording.setOnRecordingStatusUpdate((status) => {
-      if (!status.isRecording) return;
-      if (typeof status.metering === 'number') {
-        const normalized = Math.max(0, Math.min(120, Math.round(status.metering + 80)));
+    intervalRef.current = setInterval(() => {
+      const state = recorder.getStatus();
+      if (state.isRecording && typeof state.metering === 'number') {
+        const normalized = Math.max(0, Math.min(120, Math.round(state.metering + 80)));
         samplesRef.current.push(normalized);
       }
-    });
-    recording.setProgressUpdateInterval(SAMPLE_INTERVAL_MS);
-
-    await recording.startAsync();
-    recordingRef.current = recording;
+    }, SAMPLE_INTERVAL_MS);
 
     timerRef.current = setTimeout(finishMeasurement, MEASURE_DURATION_MS);
   };
@@ -108,7 +103,7 @@ export function useAmbientCheck(): AmbientCheckResult {
       samplesRef.current = [];
       const buf = new Float32Array(analyser.fftSize);
 
-      const intervalId = setInterval(() => {
+      intervalRef.current = setInterval(() => {
         analyser.getFloatTimeDomainData(buf);
         let sumSq = 0;
         for (let i = 0; i < buf.length; i++) sumSq += buf[i] * buf[i];
@@ -118,13 +113,13 @@ export function useAmbientCheck(): AmbientCheckResult {
       }, SAMPLE_INTERVAL_MS);
 
       timerRef.current = setTimeout(async () => {
-        clearInterval(intervalId);
+        if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
         stream.getTracks().forEach(t => t.stop());
         ctx.close().catch(() => {});
         await finishMeasurement();
       }, MEASURE_DURATION_MS);
     } catch (_) {
-      setStatus('ok'); // mic denied — don't block the test
+      setStatus('ok');
     }
   };
 
