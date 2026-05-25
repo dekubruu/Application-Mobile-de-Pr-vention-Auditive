@@ -347,27 +347,38 @@ export default function TestDashboardScreen() {
           />
         </View>
 
-        {/* Start test CTA */}
-        <Pressable
-          onPress={() => router.push('/hearing-test' as any)}
-          style={({ pressed }) => [styles.ctaWrapper, pressed && styles.ctaPressed]}
-        >
-          <LinearGradient
-            colors={['#0D8FA5', '#0B7285', '#09616F']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.cta}
+        {/* Test selection */}
+        <View style={styles.selectionSection}>
+          <Text style={styles.selectionTitle}>Choisissez votre test</Text>
+
+          <Pressable
+            onPress={() => router.push('/high-frequency-test' as any)}
+            style={({ pressed }) => [styles.optionCard, pressed && styles.optionCardPressed]}
           >
-            <View style={styles.ctaIconRing}>
-              <Ionicons name="headset" size={26} color={Colors.primary} />
+            <View style={styles.optionIconRing}>
+              <Ionicons name="pulse" size={22} color={Colors.primary} />
             </View>
-            <View style={styles.ctaText}>
-              <Text style={styles.ctaTitle}>Démarrer un test auditif</Text>
-              <Text style={styles.ctaSub}>~4 min · algorithme adaptatif H-W</Text>
+            <View style={styles.optionText}>
+              <Text style={styles.optionTitle}>Test haute fréquence</Text>
+              <Text style={styles.optionSub}>Tester la perception des fréquences aiguës.</Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.65)" />
-          </LinearGradient>
-        </Pressable>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/pure-tone-test' as any)}
+            style={({ pressed }) => [styles.optionCard, pressed && styles.optionCardPressed]}
+          >
+            <View style={styles.optionIconRing}>
+              <Ionicons name="ear" size={22} color={Colors.primary} />
+            </View>
+            <View style={styles.optionText}>
+              <Text style={styles.optionTitle}>Pure Tone Threshold Test (PTT)</Text>
+              <Text style={styles.optionSub}>Évaluer le seuil auditif tonal oreille gauche/droite.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+          </Pressable>
+        </View>
 
         {/* History */}
         {!loading && history.length > 0 && (
@@ -576,35 +587,45 @@ const styles = StyleSheet.create({
     letterSpacing:  0.3,
   },
 
-  // CTA button
-  ctaWrapper: {
+  // Test selection
+  selectionSection: {
     marginHorizontal: 16,
-    marginTop:        20,
-    borderRadius:     20,
-    overflow:         'hidden',
+    marginTop:        24,
+    gap:              10,
+  },
+  selectionTitle: {
+    fontSize:      17,
+    fontWeight:    '700',
+    color:         Colors.text,
+    letterSpacing: -0.2,
+    marginBottom:  4,
+  },
+  optionCard: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    backgroundColor: Colors.surface,
+    borderRadius:    16,
+    padding:         16,
+    gap:             14,
+    borderWidth:     1,
+    borderColor:     Colors.border,
     ...Platform.select({
-      ios:     { shadowColor: Colors.primaryDark, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
-      android: { elevation: 6 },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
+      android: { elevation: 3 },
     }),
   },
-  ctaPressed: { opacity: 0.88 },
-  cta: {
-    flexDirection: 'row',
-    alignItems:    'center',
-    padding:       18,
-    gap:           14,
-  },
-  ctaIconRing: {
-    width:          50,
-    height:         50,
-    borderRadius:   25,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+  optionCardPressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
+  optionIconRing: {
+    width:          46,
+    height:         46,
+    borderRadius:   23,
+    backgroundColor: Colors.primaryLight,
     alignItems:     'center',
     justifyContent: 'center',
   },
-  ctaText:  { flex: 1 },
-  ctaTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 },
-  ctaSub:   { fontSize: 12, color: 'rgba(255,255,255,0.68)', marginTop: 3, fontWeight: '500' },
+  optionText:  { flex: 1 },
+  optionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
+  optionSub:   { fontSize: 12, color: Colors.textSecondary, marginTop: 3, fontWeight: '500', lineHeight: 17 },
 
   // Section
   section:       { marginHorizontal: 16, marginTop: 24 },

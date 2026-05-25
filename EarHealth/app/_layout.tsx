@@ -13,10 +13,12 @@ function NavigationGuard() {
     if (!rootNavState?.key) return;
     if (loading) return;
 
-    const seg0            = (segments as string[])[0];
-    const inAuth          = seg0 === '(auth)';
-    const inTabs          = seg0 === '(tabs)';
-    const inHearingTest   = seg0 === 'hearing-test';
+    const seg0          = (segments as string[])[0];
+    const inAuth        = seg0 === '(auth)';
+    const inTabs        = seg0 === '(tabs)';
+    const inHearingTest = seg0 === 'hearing-test'
+                       || seg0 === 'high-frequency-test'
+                       || seg0 === 'pure-tone-test';
 
     if (!session && !inAuth) {
       router.replace('/(auth)/login' as any);
