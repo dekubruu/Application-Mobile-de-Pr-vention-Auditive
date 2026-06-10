@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioEngineHandle } from '../audio/AudioEngine';
+import { calculateHearingScore, saveHearingResultResilient } from '../services/HearingResultService';
 import {
   PTT_FREQUENCIES,
   PTT_PULSE_CYCLE_MS,
@@ -14,6 +15,7 @@ import {
   makeInitialRuntimeState,
   recordTransition,
 } from '../services/PTTAlgorithm';
+import type { HearingSaveStatus, PTTPayload } from '../services/hearing.storage';
 import type {
   PTTEar,
   PTTEarResult,
@@ -23,11 +25,15 @@ import type {
 } from '../types/ptt.types';
 
 interface UsePureToneTestArgs {
-  audio: React.RefObject<AudioEngineHandle | null>;
+  audio:      React.RefObject<AudioEngineHandle | null>;
   audioReady: boolean;
+  /** User id for persistence. If null/undefined, results are NOT saved. */
+  userId?:    string | null;
+  /** Optional callback fired after a save attempt (synced OR queued). */
+  onSaved?:   () => void;
 }
 
-export function usePureToneTest({ audio, audioReady }: UsePureToneTestArgs) {
+export function usePureToneTest({ audio, audioReady, userId, onSaved }: UsePureToneTestArgs) {
   // ── React state (UI) ──
   const [stage, setStage]                       = useState<PTTStage>('intro');
   const [currentEar, setCurrentEar]             = useState<PTTEar>('left');
@@ -38,6 +44,7 @@ export function usePureToneTest({ audio, audioReady }: UsePureToneTestArgs) {
   const [inactiveWarn, setInactiveWarn]         = useState(false);
   const [completedFreqs, setCompletedFreqs]     = useState<PTTFrequencyResult[]>([]);
   const [earResults, setEarResults]             = useState<PTTEarResult[]>([]);
+  const [saveStatus, setSaveStatus]             = useState<HearingSaveStatus>('idle');
 
   // ── Refs (algorithm state, immune to React render timing) ──
   const stateRef       = useRef<PTTRuntimeState>(makeInitialRuntimeState());
@@ -46,6 +53,11 @@ export function usePureToneTest({ audio, audioReady }: UsePureToneTestArgs) {
   const offTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const earRef         = useRef<PTTEar>('left');
   const stageRef       = useRef<PTTStage>('intro');
+
+  // ── Save refs (mirror of useQuiz pattern) ──
+  const savedRef   = useRef(false);
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
 
   // ── Cleanup all timers + audio ──
   const stopAll = useCallback(() => {
@@ -175,6 +187,8 @@ export function usePureToneTest({ audio, audioReady }: UsePureToneTestArgs) {
     setInactiveWarn(false);
     setStage('testing');
     stageRef.current = 'testing';
+    savedRef.current = false;
+    setSaveStatus('idle');
   }, []);
 
   const startRightEar = useCallback(() => {
@@ -203,6 +217,8 @@ export function usePureToneTest({ audio, audioReady }: UsePureToneTestArgs) {
     setIsHeld(false);
     heldRef.current = false;
     setInactiveWarn(false);
+    savedRef.current = false;
+    setSaveStatus('idle');
   }, [stopAll]);
 
   const reset = cancel;
@@ -231,6 +247,48 @@ export function usePureToneTest({ audio, audioReady }: UsePureToneTestArgs) {
     return () => { stopAll(); };
   }, [stopAll]);
 
+  // ── Auto-save when both ears are done ──
+  // saveHearingResultResilient guarantees durability BEFORE any network call:
+  // the row is enqueued to AsyncStorage, then an idempotent upsert is
+  // attempted. The next AppState→active or app launch flushes whatever stayed
+  // queued. ON CONFLICT DO NOTHING makes retries safe.
+  useEffect(() => {
+    if (stage !== 'result')      return;
+    if (savedRef.current)        return;
+    if (!userId)                 return;
+    if (earResults.length !== 2) return; // safety: need both ears
+
+    savedRef.current = true;
+    setSaveStatus('saving');
+
+    const payload: PTTPayload = {
+      ears: earResults.map(e => ({
+        ear:        e.ear,
+        thresholds: e.thresholds.map(t => ({ freq: t.frequency, db: t.thresholdDb })),
+        avgDb:      e.avgDb,
+      })),
+    };
+
+    const left  = earResults.find(e => e.ear === 'left');
+    const right = earResults.find(e => e.ear === 'right');
+    const meanAvgDb = left && right
+      ? (left.avgDb + right.avgDb) / 2
+      : (left?.avgDb ?? right?.avgDb ?? 0);
+    const overallScore = calculateHearingScore(meanAvgDb);
+
+    saveHearingResultResilient(userId, 'ptt', payload, overallScore)
+      .then(outcome => {
+        setSaveStatus(outcome.status === 'synced' ? 'saved' : 'queued');
+        onSavedRef.current?.();
+      })
+      .catch(() => {
+        // Catastrophic: AsyncStorage couldn't enqueue. Clear ref to allow
+        // a manual retry by re-toggling the result stage.
+        savedRef.current = false;
+        setSaveStatus('error');
+      });
+  }, [stage, earResults, userId]);
+
   return {
     // state
     stage,
@@ -244,6 +302,7 @@ export function usePureToneTest({ audio, audioReady }: UsePureToneTestArgs) {
     inactiveWarn,
     completedFreqs,
     earResults,
+    saveStatus,
 
     // actions
     start,

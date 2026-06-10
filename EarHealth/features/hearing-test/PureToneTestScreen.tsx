@@ -5,15 +5,20 @@ import React, { useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import { useAuth } from '@/features/auth/hooks/useAuth';
 import { AudioEngine, type AudioEngineHandle } from './audio/AudioEngine';
 import { HeadphoneGateView } from './components/HeadphoneGateView';
 import { PTTResultView } from './components/PTTResultView';
 import { PTTTestingView } from './components/PTTTestingView';
+import { SaveBanner } from './components/SaveBanner';
 import { usePureToneTest } from './hooks/usePureToneTest';
 import { detectFromLabels } from './services/HeadphoneDetector';
 
 export default function PureToneTestScreen() {
   const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+
   const audioRef = useRef<AudioEngineHandle | null>(null);
   const [audioReady, setAudioReady] = useState(false);
   const [gatePassed, setGatePassed] = useState(false);
@@ -32,13 +37,14 @@ export default function PureToneTestScreen() {
     inactiveWarn,
     completedFreqs,
     earResults,
+    saveStatus,
     start,
     startRightEar,
     cancel,
     reset,
     onHoldStart,
     onHoldEnd,
-  } = usePureToneTest({ audio: audioRef, audioReady });
+  } = usePureToneTest({ audio: audioRef, audioReady, userId });
 
   const handleHeadsetDetected = (labels: string[]) => {
     const result = detectFromLabels(labels);
@@ -115,6 +121,7 @@ export default function PureToneTestScreen() {
 
       {gatePassed && stage === 'result' && (
         <>
+          <SaveBanner status={saveStatus} />
           <PTTResultView earResults={earResults} />
           <View style={styles.footer}>
             <Pressable onPress={reset} style={styles.footerBtnSecondary}>

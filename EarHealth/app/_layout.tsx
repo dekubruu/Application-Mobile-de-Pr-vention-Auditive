@@ -16,8 +16,8 @@ function NavigationGuard() {
     const seg0          = (segments as string[])[0];
     const inAuth        = seg0 === '(auth)';
     const inTabs        = seg0 === '(tabs)';
-    const inHearingTest = seg0 === 'hearing-test'
-                       || seg0 === 'high-frequency-test'
+    // Legacy 'hearing-test' route was removed; only the new PTT/HFRT routes remain.
+    const inHearingTest = seg0 === 'high-frequency-test'
                        || seg0 === 'pure-tone-test';
 
     if (!session && !inAuth) {

@@ -12,7 +12,7 @@ export interface HeadphoneDetectionResult {
   headsetId: string | null; // matches HEADSETS list id in HeadsetSelectView
 }
 
-const LABEL_MAP: Array<{ pattern: string; id: string; type: HeadphoneType }> = [
+const LABEL_MAP: { pattern: string; id: string | null; type: HeadphoneType }[] = [
   { pattern: 'airpods pro',          id: 'airpods_pro2',     type: 'airpods'    },
   { pattern: 'airpods max',          id: 'airpods_max',      type: 'airpods'    },
   { pattern: 'airpods',              id: 'airpods3',         type: 'airpods'    },

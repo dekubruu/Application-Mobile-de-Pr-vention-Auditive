@@ -1,17 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { getHearingCategory } from '../constants/hearing-test.constants';
-import { calculateHearingScore, getHearingTestHistory } from '../services/HearingResultService';
+import { getHearingTestHistory, type StoredHearingTestRow } from '../services/HearingResultService';
+import type {
+  HearingTestType,
+  HFRTPayload,
+  PTTPayload,
+} from '../services/hearing.storage';
 import type { HearingCategory } from '../types/hearing-test.types';
 
 export interface TestHistoryItem {
-  id:         string;
-  createdAt:  string;
-  testMode:   'headset' | 'speaker';
-  score:      number;
-  category:   HearingCategory;
-  leftScore:  number | null;
-  rightScore: number | null;
+  id:              string;
+  createdAt:       string;
+  testType:        HearingTestType;
+  score:           number;             // 0-100, unified across types
+  category:        HearingCategory;
+  // PTT-specific
+  ptaDb?:          number;             // mean of (left.avgDb + right.avgDb) / 2
+  // HFRT-specific
+  maxFrequencyHz?: number;
+  interpretation?: string;
 }
 
 export interface DashboardData {
@@ -26,23 +33,42 @@ export interface DashboardData {
   refresh:      () => void;
 }
 
-function rowToScore(row: any): number {
-  if (row.test_mode === 'speaker') {
-    return row.mono_avg_db != null ? calculateHearingScore(Math.round(row.mono_avg_db)) : 0;
-  }
-  const scores = [row.left_score, row.right_score].filter((s: any): s is number => s != null);
-  return scores.length
-    ? Math.round(scores.reduce((a: number, b: number) => a + b, 0) / scores.length)
-    : 0;
+// Unified score → category mapping. Identical thresholds across PTT and HFRT
+// so the dashboard reads consistently regardless of test type.
+function scoreToCategory(score: number): HearingCategory {
+  if (score >= 80) return 'normal';
+  if (score >= 60) return 'mild';
+  if (score >= 40) return 'moderate';
+  return 'severe';
 }
 
-function rowToCategory(row: any): HearingCategory {
-  if (row.test_mode === 'speaker') {
-    return getHearingCategory(row.mono_avg_db ?? 0);
+function rowToHistoryItem(row: StoredHearingTestRow): TestHistoryItem {
+  const score = row.overall_score ?? 0;
+  const base = {
+    id:        row.id,
+    createdAt: row.created_at,
+    testType:  row.test_type,
+    score,
+    category:  scoreToCategory(score),
+  } as const;
+
+  if (row.test_type === 'ptt') {
+    const payload = row.payload as PTTPayload;
+    const left  = payload.ears.find(e => e.ear === 'left');
+    const right = payload.ears.find(e => e.ear === 'right');
+    const ptaDb = left && right
+      ? Math.round((left.avgDb + right.avgDb) / 2)
+      : left?.avgDb ?? right?.avgDb ?? 0;
+    return { ...base, ptaDb };
   }
-  const dbs = [row.left_avg_db, row.right_avg_db].filter((v: any): v is number => v != null);
-  const avg = dbs.length ? dbs.reduce((a: number, b: number) => a + b, 0) / dbs.length : 0;
-  return getHearingCategory(avg);
+
+  // hfrt
+  const payload = row.payload as HFRTPayload;
+  return {
+    ...base,
+    maxFrequencyHz: payload.maxFrequencyHz,
+    interpretation: payload.interpretation,
+  };
 }
 
 export function useTestDashboard(): DashboardData {
@@ -56,15 +82,7 @@ export function useTestDashboard(): DashboardData {
     setLoading(true);
     const rows = await getHearingTestHistory(session.user.id, 10);
     setTestCount(rows.length);
-    setHistory(rows.map((row: any) => ({
-      id:         row.id,
-      createdAt:  row.created_at,
-      testMode:   row.test_mode as 'headset' | 'speaker',
-      score:      rowToScore(row),
-      category:   rowToCategory(row),
-      leftScore:  row.left_score  ?? null,
-      rightScore: row.right_score ?? null,
-    })));
+    setHistory(rows.map(rowToHistoryItem));
     setLoading(false);
   }, [session?.user?.id]);
 

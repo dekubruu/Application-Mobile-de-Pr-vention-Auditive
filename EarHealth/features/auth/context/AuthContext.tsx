@@ -3,17 +3,23 @@ import { AppState, type AppStateStatus } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/src/utils/supabase';
 import { quizService } from '@/features/quiz/services/quiz.service';
+import { flushPendingHearingResults } from '@/features/hearing-test/services/HearingResultService';
 import { profileService } from '../services/profile.service';
 import type { Profile } from '../types/auth.types';
 
-// ── Fire-and-forget flush of any locally-queued quiz sessions ─────────────────
+// ── Fire-and-forget flush of any locally-queued data ────────────────────────
 // CONTRACT: this helper MUST NOT throw and MUST NOT return a rejected promise
 // under any circumstance. It catches every error path silently so that a flush
 // failure can never cascade into the auth provider.
+//
+// Two queues are flushed in parallel (quiz + hearing-test). Each feature owns
+// its own module-level single-flight guard so internal serialization is intact;
+// the two flushes proceed independently.
 function fireFlush(userId: string | null): void {
   if (!userId) return;
   try {
     void quizService.flushPendingSessions(userId).catch(() => { /* silent */ });
+    void flushPendingHearingResults(userId).catch(() => { /* silent */ });
   } catch {
     /* silent: defensive guard if even the call site somehow throws */
   }

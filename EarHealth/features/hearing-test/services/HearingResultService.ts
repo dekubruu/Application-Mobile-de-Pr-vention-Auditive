@@ -1,9 +1,23 @@
+import * as Crypto from 'expo-crypto';
 import { supabase } from '@/src/utils/supabase';
-import type { FrequencyThreshold, HearingTestSavePayload } from '../types/hearing-test.types';
+import {
+  enqueuePendingResult,
+  listPendingResults,
+  removePendingResult,
+  type HearingFlushOutcome,
+  type HearingPayload,
+  type HearingResilientSaveOutcome,
+  type HearingTestType,
+  type PendingHearingResult,
+} from './hearing.storage';
+import type { FrequencyThreshold } from '../types/hearing-test.types';
 
-// ── Score ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Pure helpers (kept from the legacy service — still used by useTestDashboard
+// and any future feature that needs to derive a dB → score / detect HF loss).
+// ─────────────────────────────────────────────────────────────────────────────
+
 // 0 dB (perfect) → 100 pts; 80 dB (severe) → ~12 pts. Linear above 0 dB.
-
 export function calculateHearingScore(avgDb: number): number {
   return Math.max(0, Math.min(100, Math.round(100 - avgDb * 1.1)));
 }
@@ -13,9 +27,7 @@ export function averageDb(results: FrequencyThreshold[]): number {
   return Math.round(results.reduce((s, r) => s + r.dbLevel, 0) / results.length);
 }
 
-// ── High-frequency loss detection ─────────────────────────────────────────────
 // HF loss: avg(4k, 8k) exceeds avg(250, 500, 1k) by more than 15 dB.
-
 export function detectHFLoss(results: FrequencyThreshold[]): boolean {
   const at = (f: number) => results.find(r => r.frequency === f)?.dbLevel ?? null;
   const lf = [250, 500, 1000].map(at).filter((v): v is number => v !== null);
@@ -26,86 +38,158 @@ export function detectHFLoss(results: FrequencyThreshold[]): boolean {
   return (hfAvg - lfAvg) > 15;
 }
 
-// ── Supabase persistence ───────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Supabase persistence
+// ─────────────────────────────────────────────────────────────────────────────
 
-export async function saveHearingTestResult(
-  userId:  string,
-  payload: HearingTestSavePayload,
-): Promise<string | null> {
-  const { data, error } = await supabase
+// Module-level single-flight guard for flushPendingHearingResults.
+// Distinct from the quiz feature's flushInFlight — the two queues are flushed
+// in parallel but each is serialized within itself.
+let flushInFlight = false;
+
+// Private: idempotent upsert.
+// `ignoreDuplicates: true` → `INSERT ... ON CONFLICT DO NOTHING`. There is no
+// "bump points" trigger on hearing_test_results (the task explicitly forbids
+// awarding points for tests), but the no-op semantics on conflict still buy
+// us a clean retry story: replays of the same id never write twice.
+async function persistResult(payload: {
+  id:            string;
+  user_id:       string;
+  test_type:     HearingTestType;
+  payload:       HearingPayload;
+  overall_score: number;
+}): Promise<void> {
+  const { error } = await supabase
     .from('hearing_test_results')
-    .insert({
-      user_id:             userId,
-      test_mode:           payload.testMode,
-      headset_id:          payload.headsetId,
-      left_ear_data:       payload.leftEarData,
-      right_ear_data:      payload.rightEarData,
-      mono_data:           payload.monoData,
-      left_avg_db:         payload.leftAvgDb,
-      right_avg_db:        payload.rightAvgDb,
-      mono_avg_db:         payload.monoAvgDb,
-      left_score:          payload.leftScore,
-      right_score:         payload.rightScore,
-      mono_score:          payload.monoScore,
-      false_pos_ratio:     payload.falsePosRatio,
-      reliable:            payload.reliable,
-      ambient_db:          payload.ambientDb,
-      platform:            payload.platform,
-      started_at:          payload.startedAt.toISOString(),
-      completed_at:        payload.completedAt.toISOString(),
-      test_duration_s:     payload.testDurationSeconds,
-      environment_warning: payload.environmentWarning,
-    })
-    .select('id')
-    .single();
+    .upsert(payload, { onConflict: 'id', ignoreDuplicates: true });
+  if (error) throw error;
+}
 
-  if (error) {
-    console.warn('[HearingResultService] save failed:', error.message);
-    return null;
+// ── Resilient save ──
+//
+// Guarantee: the result is durable BEFORE any network call. If the app is
+// killed between gameEnded and the Supabase response, the row will be
+// re-pushed by the next flush (app launch or foreground return).
+//
+// Idempotency: the `id` is generated ONCE here. On retry, we use the same id
+// and rely on persistResult's `ON CONFLICT DO NOTHING` to no-op.
+//
+// Errors:
+//   - AsyncStorage failure (enqueue throws) → THROWN to caller. Hook sets
+//     saveStatus='error'. This is the only catastrophic path.
+//   - Network/Supabase failure (persist throws) → CAUGHT, returns 'queued'.
+//     The row stays in the local queue and the next flush will retry.
+export async function saveHearingResultResilient(
+  userId:       string,
+  testType:     HearingTestType,
+  payload:      HearingPayload,
+  overallScore: number,
+): Promise<HearingResilientSaveOutcome> {
+  const id = Crypto.randomUUID();
+
+  const queued: PendingHearingResult = {
+    id,
+    user_id:       userId,
+    test_type:     testType,
+    payload,
+    overall_score: overallScore,
+    queued_at:     new Date().toISOString(),
+  };
+
+  // 1) Durability first: must succeed before any network attempt.
+  await enqueuePendingResult(queued);
+
+  // 2) Try to push immediately. Do NOT throw on network failure — that's the
+  //    whole point of the queue.
+  try {
+    await persistResult({
+      id:            queued.id,
+      user_id:       queued.user_id,
+      test_type:     queued.test_type,
+      payload:       queued.payload,
+      overall_score: queued.overall_score,
+    });
+  } catch {
+    return { status: 'queued', id };
   }
 
-  const testId = (data as any)?.id as string | undefined;
-  if (!testId) return null;
+  // 3) Persist succeeded. Cleanup is best-effort — if removePendingResult
+  //    fails (transient AsyncStorage hiccup), the next flush will retry and
+  //    ON CONFLICT DO NOTHING makes the duplicate upsert a server-side no-op.
+  //    We do NOT mis-report 'queued' here — the data IS in Supabase.
+  await removePendingResult(id).catch(() => { /* swallowed: self-healing */ });
+  return { status: 'synced', id };
+}
 
-  // Batch-insert normalized frequency results — non-blocking, failure is non-fatal
-  const freqRows = [
-    ...payload.leftEarData.map(r => ({
-      test_id: testId, ear_side: 'left',
-      frequency_hz: r.frequency, threshold_db: r.dbLevel,
-      presentations: r.presentations, reliable: r.reliable,
-    })),
-    ...payload.rightEarData.map(r => ({
-      test_id: testId, ear_side: 'right',
-      frequency_hz: r.frequency, threshold_db: r.dbLevel,
-      presentations: r.presentations, reliable: r.reliable,
-    })),
-    ...payload.monoData.map(r => ({
-      test_id: testId, ear_side: 'mono',
-      frequency_hz: r.frequency, threshold_db: r.dbLevel,
-      presentations: r.presentations, reliable: r.reliable,
-    })),
-  ];
-
-  if (freqRows.length > 0) {
-    supabase
-      .from('hearing_test_freq_results')
-      .insert(freqRows)
-      .then(({ error: freqErr }) => {
-        if (freqErr) console.warn('[HearingResultService] freq insert failed:', freqErr.message);
-      });
+// ── Flush queue ──
+//
+// Single-flight: a concurrent call returns immediately with skipped=true.
+// Scope: only rows belonging to `currentUserId` are processed (multi-user
+// device safety). Errors per row are NEVER propagated.
+//
+// Callers MUST fire-and-forget. The only path that throws is AsyncStorage
+// itself being unreadable on the initial listPendingResults.
+export async function flushPendingHearingResults(
+  currentUserId: string | null,
+): Promise<HearingFlushOutcome> {
+  if (flushInFlight) {
+    return { flushed: 0, remaining: 0, skipped: true };
+  }
+  if (!currentUserId) {
+    return { flushed: 0, remaining: 0, skipped: false };
   }
 
-  return testId;
+  flushInFlight = true;
+  try {
+    const all    = await listPendingResults();
+    const mine   = all.filter(r => r.user_id === currentUserId);
+    const others = all.length - mine.length;
+
+    let flushed = 0;
+    let stillPending = 0;
+
+    for (const row of mine) {
+      try {
+        await persistResult({
+          id:            row.id,
+          user_id:       row.user_id,
+          test_type:     row.test_type,
+          payload:       row.payload,
+          overall_score: row.overall_score,
+        });
+        await removePendingResult(row.id);
+        flushed++;
+      } catch {
+        stillPending++;
+      }
+    }
+
+    return { flushed, remaining: stillPending + others, skipped: false };
+  } finally {
+    flushInFlight = false;
+  }
+}
+
+// ── History fetch ──
+
+export interface StoredHearingTestRow {
+  id:            string;
+  user_id:       string;
+  created_at:    string;
+  test_type:     HearingTestType;
+  payload:       HearingPayload;
+  overall_score: number | null;
 }
 
 export async function getHearingTestHistory(
   userId: string,
   limit   = 10,
-): Promise<any[]> {
+): Promise<StoredHearingTestRow[]> {
   const { data, error } = await supabase
     .from('hearing_test_results')
-    .select('*')
+    .select('id, user_id, created_at, test_type, payload, overall_score')
     .eq('user_id', userId)
+    .in('test_type', ['ptt', 'hfrt'])
     .order('created_at', { ascending: false })
     .limit(limit);
 
@@ -113,5 +197,5 @@ export async function getHearingTestHistory(
     console.warn('[HearingResultService] fetch failed:', error.message);
     return [];
   }
-  return data ?? [];
+  return (data ?? []) as StoredHearingTestRow[];
 }

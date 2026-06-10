@@ -12,10 +12,13 @@ export const useProfileData = () => {
       setLoadingStats(false);
       return;
     }
+    // Count completed hearing tests (both PTT and HFRT) for this user.
+    // The legacy 'hearing_tests' table name was a stale reference.
     supabase
-      .from('hearing_tests')
-      .select('*', { count: 'exact', head: true })
+      .from('hearing_test_results')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', session.user.id)
+      .in('test_type', ['ptt', 'hfrt'])
       .then(({ count }) => {
         setTestsCount(count ?? 0);
         setLoadingStats(false);

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioEngineHandle } from '../audio/AudioEngine';
+import { saveHearingResultResilient } from '../services/HearingResultService';
 import {
+  HFRT_MAX_FREQ,
   HFRT_START_FREQ,
   HFRT_TICK_MS,
   HFRT_TONE_GUARD_MS,
@@ -8,26 +10,50 @@ import {
   adjustFrequency,
   buildResult,
   hasConverged,
+  interpretMaxFrequency,
   makeInitialRuntimeState,
   recordTransition,
 } from '../services/HFRTAlgorithm';
+import type { HearingSaveStatus, HFRTPayload } from '../services/hearing.storage';
 import type { HFRTResult, HFRTRuntimeState, HFRTStage } from '../types/hfrt.types';
 
 interface UseHighFrequencyTestArgs {
-  audio: React.RefObject<AudioEngineHandle | null>;
+  audio:      React.RefObject<AudioEngineHandle | null>;
   audioReady: boolean;
+  /** User id for persistence. If null/undefined, results are NOT saved. */
+  userId?:    string | null;
+  /** Optional callback fired after a save attempt (synced OR queued). */
+  onSaved?:   () => void;
 }
 
-export function useHighFrequencyTest({ audio, audioReady }: UseHighFrequencyTestArgs) {
+// HFRT score: linear ratio of max audible frequency over the upper bound.
+// 20 kHz → 100, 16 kHz → 80, 12 kHz → 60. Conscious limitation: linear is a
+// rough proxy and over-penalizes adult ears; revisit with an age-aware curve
+// if more nuance is needed later.
+function hfrtScore(maxFrequencyHz: number): number {
+  return Math.round(
+    Math.min(100, Math.max(0, (maxFrequencyHz / HFRT_MAX_FREQ) * 100)),
+  );
+}
+
+export function useHighFrequencyTest({
+  audio, audioReady, userId, onSaved,
+}: UseHighFrequencyTestArgs) {
   const [stage, setStage]               = useState<HFRTStage>('intro');
   const [currentFreq, setCurrentFreq]   = useState(HFRT_START_FREQ);
   const [isHeld, setIsHeld]             = useState(false);
   const [result, setResult]             = useState<HFRTResult | null>(null);
+  const [saveStatus, setSaveStatus]     = useState<HearingSaveStatus>('idle');
 
   const stateRef     = useRef<HFRTRuntimeState>(makeInitialRuntimeState());
   const heldRef      = useRef(false);
   const tickRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const toneStartRef = useRef(0);
+
+  // ── Save refs (mirror of useQuiz pattern) ──
+  const savedRef   = useRef(false);
+  const onSavedRef = useRef(onSaved);
+  onSavedRef.current = onSaved;
 
   const stopTicking = useCallback(() => {
     if (tickRef.current) {
@@ -83,6 +109,8 @@ export function useHighFrequencyTest({ audio, audioReady }: UseHighFrequencyTest
     setCurrentFreq(HFRT_START_FREQ);
     setResult(null);
     setStage('testing');
+    savedRef.current = false;
+    setSaveStatus('idle');
   }, []);
 
   const cancel = useCallback(() => {
@@ -93,6 +121,8 @@ export function useHighFrequencyTest({ audio, audioReady }: UseHighFrequencyTest
     setCurrentFreq(HFRT_START_FREQ);
     setIsHeld(false);
     heldRef.current = false;
+    savedRef.current = false;
+    setSaveStatus('idle');
   }, [stopTicking]);
 
   const reset = cancel;
@@ -119,11 +149,43 @@ export function useHighFrequencyTest({ audio, audioReady }: UseHighFrequencyTest
     return () => { stopTicking(); };
   }, [stopTicking]);
 
+  // ── Auto-save when result is available ──
+  // Mirrors the useQuiz / usePureToneTest pattern: durability first via
+  // AsyncStorage queue, then idempotent upsert. The same id is reused on any
+  // retry; ON CONFLICT DO NOTHING makes replays a server-side no-op.
+  useEffect(() => {
+    if (stage !== 'result') return;
+    if (!result)            return;
+    if (savedRef.current)   return;
+    if (!userId)            return;
+
+    savedRef.current = true;
+    setSaveStatus('saving');
+
+    const maxHz = result.maxAudibleFrequency;
+    const payload: HFRTPayload = {
+      maxFrequencyHz: maxHz,
+      interpretation: interpretMaxFrequency(maxHz).label,
+    };
+    const overallScore = hfrtScore(maxHz);
+
+    saveHearingResultResilient(userId, 'hfrt', payload, overallScore)
+      .then(outcome => {
+        setSaveStatus(outcome.status === 'synced' ? 'saved' : 'queued');
+        onSavedRef.current?.();
+      })
+      .catch(() => {
+        savedRef.current = false;
+        setSaveStatus('error');
+      });
+  }, [stage, result, userId]);
+
   return {
     stage,
     currentFreq,
     isHeld,
     result,
+    saveStatus,
     start,
     cancel,
     reset,

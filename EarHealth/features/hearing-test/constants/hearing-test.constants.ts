@@ -1,46 +1,18 @@
 import type { HearingCategory } from '../types/hearing-test.types';
 
-// ── Test frequencies (Hz) — standard audiometric order ───────────────────────
-export const TEST_FREQUENCIES = [1000, 2000, 4000, 500, 250, 8000];
+// ── dB → volume conversion ───────────────────────────────────────────────────
+// Reference level used to map a presentation dB value to a Web Audio gain in
+// [0.002, 1.0]. Kept on the conservative side so the loudest tones never clip.
+const DB_REFERENCE = 60; // vol = 10^((db - 60) / 20), clamped [0.002, 1.0]
 
-// ── Hughson-Westlake algorithm ────────────────────────────────────────────────
-// "Down 10, Up 5" rule. Threshold = mean of last 2–3 reversal points.
-export const HW_START_DB          = 40;
-export const HW_DOWN_STEP         = 10;
-export const HW_UP_STEP           = 5;
-export const HW_MIN_DB            = 0;
-export const HW_MAX_DB            = 80;
-export const HW_REVERSAL_COUNT    = 3;
-export const HW_MAX_PRESENTATIONS = 24;
-export const HW_DB_REFERENCE      = 60; // vol = 10^((db - 60) / 20), clamped [0.002, 1.0]
+export function dbToVolume(db: number): number {
+  return Math.min(1.0, Math.max(0.002, Math.pow(10, (db - DB_REFERENCE) / 20)));
+}
 
-// ── Anti-cheat / timing ───────────────────────────────────────────────────────
-export const SILENT_TRIAL_PROBABILITY  = 0.10; // 10 % of trials have no tone
-export const MIN_RESPONSE_INTERVAL_MS  = 300;  // debounce rapid taps
-export const TONE_START_GUARD_MS       = 200;  // ignore responses < 200ms after tone starts
-export const FALSE_POSITIVE_WARN_RATIO = 0.40; // warn if > 40 % of silent trials triggered
-export const ISI_MIN_MS                = 500;  // inter-stimulus interval minimum
-export const ISI_MAX_MS                = 1200; // inter-stimulus interval maximum
-
-// ── Channel validation ────────────────────────────────────────────────────────
-export const CV_FREQUENCY    = 1000;
-export const CV_VOLUME       = 0.3;
-export const CV_MAX_ATTEMPTS = 2;
-
-// ── Ambient noise thresholds ──────────────────────────────────────────────────
-export const AMBIENT_OK_DB   = 40; // below this: perfect
-export const AMBIENT_WARN_DB = 55; // 40–55: warning, > 55: loud
-
-// ── Result interpretation (relative dB scale, device-dependent) ───────────────
+// ── Hearing category thresholds (relative dB scale, device-dependent) ────────
 export const DB_NORMAL_MAX   = 20;
 export const DB_MILD_MAX     = 40;
 export const DB_MODERATE_MAX = 60;
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-export function dbToVolume(db: number): number {
-  return Math.min(1.0, Math.max(0.002, Math.pow(10, (db - HW_DB_REFERENCE) / 20)));
-}
 
 export function getHearingCategory(avgDb: number): HearingCategory {
   if (avgDb <= DB_NORMAL_MAX)   return 'normal';

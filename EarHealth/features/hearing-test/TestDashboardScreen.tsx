@@ -387,38 +387,44 @@ export default function TestDashboardScreen() {
               <Text style={styles.sectionTitle}>Derniers tests</Text>
               <Text style={styles.sectionCount}>{testCount} au total</Text>
             </View>
-            {history.slice(0, 3).map(item => (
-              <View key={item.id} style={styles.historyItem}>
-                <View style={[
-                  styles.historyModeIcon,
-                  { backgroundColor: item.testMode === 'headset' ? Colors.primaryLight : Colors.warningLight },
-                ]}>
-                  <Ionicons
-                    name={item.testMode === 'headset' ? 'headset' : 'volume-medium'}
-                    size={17}
-                    color={item.testMode === 'headset' ? Colors.primary : Colors.warning}
-                  />
-                </View>
+            {history.slice(0, 3).map(item => {
+              const isPTT = item.testType === 'ptt';
+              const subtitle = isPTT
+                ? (item.ptaDb != null ? `Tonal · PTA ${item.ptaDb} dB` : 'Tonal')
+                : (item.maxFrequencyHz != null
+                    ? `Haute fréquence · ${(item.maxFrequencyHz / 1000).toFixed(1)} kHz`
+                    : 'Haute fréquence');
+              return (
+                <View key={item.id} style={styles.historyItem}>
+                  <View style={[
+                    styles.historyModeIcon,
+                    { backgroundColor: isPTT ? Colors.primaryLight : Colors.warningLight },
+                  ]}>
+                    <Ionicons
+                      name={isPTT ? 'ear' : 'pulse'}
+                      size={17}
+                      color={isPTT ? Colors.primary : Colors.warning}
+                    />
+                  </View>
 
-                <View style={styles.historyInfo}>
-                  <Text style={styles.historyDate}>{formatDate(item.createdAt)}</Text>
-                  <Text style={styles.historyMode}>
-                    {item.testMode === 'headset' ? 'Avec écouteurs' : 'Haut-parleur'}
-                  </Text>
-                </View>
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyDate}>{formatDate(item.createdAt)}</Text>
+                    <Text style={styles.historyMode}>{subtitle}</Text>
+                  </View>
 
-                <View style={styles.historyRight}>
-                  <Text style={[styles.historyScore, { color: getCategoryColor(item.category) }]}>
-                    {item.score}
-                  </Text>
-                  <View style={[styles.historyBadge, { backgroundColor: getCategoryBg(item.category) }]}>
-                    <Text style={[styles.historyBadgeText, { color: getCategoryColor(item.category) }]}>
-                      {getCategoryLabel(item.category)}
+                  <View style={styles.historyRight}>
+                    <Text style={[styles.historyScore, { color: getCategoryColor(item.category) }]}>
+                      {item.score}
                     </Text>
+                    <View style={[styles.historyBadge, { backgroundColor: getCategoryBg(item.category) }]}>
+                      <Text style={[styles.historyBadgeText, { color: getCategoryColor(item.category) }]}>
+                        {getCategoryLabel(item.category)}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </View>
         )}
 
