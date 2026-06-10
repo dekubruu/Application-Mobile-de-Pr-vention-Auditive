@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -22,6 +22,15 @@ export default function QuizScreen() {
   // ── Dashboard selection (persisted only in memory while on screen) ──
   const [difficulty, setDifficulty] = useState<DifficultyChoice>('mixed');
 
+  // Memoized to keep the array reference stable across renders. Without this,
+  // useQuiz's `start` useCallback would be re-created every render — harmless
+  // today (autoLoad=false) but would cause an infinite render loop if autoLoad
+  // were ever turned on with a non-mixed selection.
+  const difficulties = useMemo<QuizDifficulty[] | undefined>(
+    () => (difficulty === 'mixed' ? undefined : [difficulty as QuizDifficulty]),
+    [difficulty],
+  );
+
   // Dashboard stats
   const { stats, status: statsStatus, error: statsError, refresh: refreshStats } =
     useQuizStats(userId);
@@ -29,7 +38,7 @@ export default function QuizScreen() {
   // Quiz session — difficulty filter is applied at fetch time inside useQuiz.start()
   const quiz = useQuiz({
     count:        10,
-    difficulties: difficulty === 'mixed' ? undefined : [difficulty as QuizDifficulty],
+    difficulties,
     userId,
     onSaved:      refreshStats,
   });
@@ -104,6 +113,14 @@ export default function QuizScreen() {
           {quiz.saveStatus === 'saving' && (
             <View style={styles.saveBanner}>
               <Text style={styles.saveBannerText}>Enregistrement…</Text>
+            </View>
+          )}
+          {quiz.saveStatus === 'queued' && (
+            <View style={styles.saveBannerQueued}>
+              <Ionicons name="cloud-offline-outline" size={14} color={Colors.primaryDark} />
+              <Text style={styles.saveBannerQueuedText}>
+                Enregistré localement. Sera synchronisé à la reconnexion.
+              </Text>
             </View>
           )}
           {quiz.saveStatus === 'error' && (
@@ -216,4 +233,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.warning,
   },
   saveBannerErrorText: { flex: 1, fontSize: 12, color: Colors.warning, fontWeight: '600' },
+
+  saveBannerQueued: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  saveBannerQueuedText: { flex: 1, fontSize: 12, color: Colors.primaryDark, fontWeight: '600' },
 });

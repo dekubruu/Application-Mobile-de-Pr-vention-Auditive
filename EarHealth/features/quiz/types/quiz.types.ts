@@ -75,3 +75,38 @@ export interface QuizStats {
   bestSessionPct:   number;     // best single-session accuracy 0–100
   lastSessionDate:  string | null; // ISO
 }
+
+// ── Pending session: persisted locally before reaching Supabase ───────────────
+// Idempotency: id is generated client-side ONCE (Crypto.randomUUID) and reused
+// for every retry until the row is successfully upserted.
+export interface PendingQuizSession {
+  id:              string;       // stable client UUID
+  user_id:         string;
+  total_questions: number;
+  correct_count:   number;
+  incorrect_count: number;
+  points_earned:   number;
+  points_max:      number;
+  queued_at:       string;       // ISO timestamp (set at enqueue time)
+}
+
+// ── Save status surfaced by the hook to the UI ────────────────────────────────
+//   idle    : nothing yet
+//   saving  : network attempt in progress
+//   saved   : row confirmed in Supabase
+//   queued  : enqueued locally, network unavailable — will retry on flush
+//   error   : catastrophic (e.g. AsyncStorage unavailable) — data NOT persisted
+export type QuizSaveStatus = 'idle' | 'saving' | 'saved' | 'queued' | 'error';
+
+// ── Result of saveQuizSessionResilient ────────────────────────────────────────
+export interface ResilientSaveOutcome {
+  status: 'synced' | 'queued';
+  id:     string;
+}
+
+// ── Result of flushPendingSessions ────────────────────────────────────────────
+export interface FlushOutcome {
+  flushed:   number;   // sessions successfully persisted in this run
+  remaining: number;   // sessions still in the queue after this run
+  skipped:   boolean;  // true if a flush was already in flight (single-flight)
+}
