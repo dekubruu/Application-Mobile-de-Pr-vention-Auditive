@@ -21,6 +21,7 @@ import {
   getCategoryBg,
   getCategoryColor,
   getCategoryLabel,
+  toDisplayDb,
 } from './constants/hearing-test.constants';
 import { useTestDashboard } from './hooks/useTestDashboard';
 import type { HearingCategory } from './types/hearing-test.types';
@@ -390,7 +391,7 @@ export default function TestDashboardScreen() {
             {history.slice(0, 3).map(item => {
               const isPTT = item.testType === 'ptt';
               const subtitle = isPTT
-                ? (item.ptaDb != null ? `Tonal · PTA ${item.ptaDb} dB` : 'Tonal')
+                ? (item.ptaDb != null ? `Tonal · PTA ${toDisplayDb(item.ptaDb)} dB` : 'Tonal')
                 : (item.maxFrequencyHz != null
                     ? `Haute fréquence · ${(item.maxFrequencyHz / 1000).toFixed(1)} kHz`
                     : 'Haute fréquence');

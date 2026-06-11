@@ -1,19 +1,30 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import { PTT_FREQUENCIES, PTT_MAX_DB, PTT_MIN_DB } from '../services/PTTAlgorithm';
+import { toDisplayDb } from '../constants/hearing-test.constants';
+import { PTT_FREQUENCIES } from '../services/PTTAlgorithm';
 import type { PTTEarResult } from '../types/ptt.types';
 
 // Clinical audiogram conventions:
 //   • Right ear: red, circle marker (O)
 //   • Left  ear: blue, cross marker (X)
-//   • Y axis (dB HL) inverted: 0 at top, 80+ at bottom
+//   • Y axis (dB, uncalibrated relative scale) inverted: top end = better hearing
 //   • X axis (Hz) on log scale
+//
+// The chart's vertical range is INTENTIONALLY decoupled from PTT_MIN_DB /
+// PTT_MAX_DB so future algorithm tuning (e.g. extending the staircase to
+// -30 dB) does not silently rescale the chart and break the position of the
+// 0 dB clinical reference line.
 
 const CLINICAL_RIGHT = '#C0392B';
 const CLINICAL_LEFT  = '#2A6BC1';
 
-const Y_LINES = [0, 20, 40, 60, 80];
+// Chart-specific range. Spans the "better than normal" zone (negative dB)
+// at the top through severe hearing loss at the bottom.
+const CHART_MIN_DB = -20;
+const CHART_MAX_DB = 80;
+
+const Y_LINES = [-20, 0, 20, 40, 60, 80];
 
 interface AudiogramChartProps {
   earResults: PTTEarResult[];
@@ -52,8 +63,11 @@ export const AudiogramChart: React.FC<AudiogramChartProps> = ({
     return padL + ((Math.log(hz) - minLog) / (maxLog - minLog)) * plotW;
   }
   function dbToY(db: number): number {
-    const clamped = Math.min(PTT_MAX_DB, Math.max(PTT_MIN_DB, db));
-    return padT + (clamped / (PTT_MAX_DB - PTT_MIN_DB)) * plotH;
+    const clamped = Math.min(CHART_MAX_DB, Math.max(CHART_MIN_DB, db));
+    // Offset by CHART_MIN_DB so that the *visual* top of the plot maps to
+    // CHART_MIN_DB (the best hearing), not to dB=0. Without this offset a
+    // negative threshold would render ABOVE the plot area.
+    return padT + ((clamped - CHART_MIN_DB) / (CHART_MAX_DB - CHART_MIN_DB)) * plotH;
   }
 
   function pointsFor(ear: PTTEarResult | undefined): Point[] {
@@ -70,15 +84,17 @@ export const AudiogramChart: React.FC<AudiogramChartProps> = ({
   return (
     <View style={[styles.container, { height }]} onLayout={onLayout}>
       {/* Y axis horizontal grid + labels */}
+      {/* Y_LINES holds INTERNAL dB values (drive grid position via dbToY). */}
+      {/* The visible label is offset to the user-facing 0..100 scale. */}
       {Y_LINES.map(db => {
         const y = dbToY(db);
+        // Internal 0 dB (visible "20") is the clinical reference line — emphasize.
+        // Internal 20 dB (visible "40") marks mild-loss threshold — slight emphasis.
+        const opacity = db === 0 ? 0.55 : db === 20 ? 0.35 : 0.16;
         return (
           <React.Fragment key={`y-${db}`}>
-            <View style={[
-              styles.gridLine,
-              { left: padL, right: padR, top: y, opacity: db === 20 ? 0.35 : 0.16 },
-            ]} />
-            <Text style={[styles.axisLabelY, { top: y - 7 }]}>{db}</Text>
+            <View style={[styles.gridLine, { left: padL, right: padR, top: y, opacity }]} />
+            <Text style={[styles.axisLabelY, { top: y - 7 }]}>{toDisplayDb(db)}</Text>
           </React.Fragment>
         );
       })}
@@ -124,7 +140,8 @@ export const AudiogramChart: React.FC<AudiogramChartProps> = ({
       ))}
 
       {/* Axis titles */}
-      <Text style={styles.titleY}>dB HL</Text>
+      {/* Unit is "dB" (not "dB HL") — the scale is uncalibrated. */}
+      <Text style={styles.titleY}>dB</Text>
       <Text style={[styles.titleX, { left: padL, right: padR, top: padT + plotH + 18 }]}>
         Fréquence (Hz)
       </Text>

@@ -2,11 +2,39 @@ import type { HearingCategory } from '../types/hearing-test.types';
 
 // ── dB → volume conversion ───────────────────────────────────────────────────
 // Reference level used to map a presentation dB value to a Web Audio gain in
-// [0.002, 1.0]. Kept on the conservative side so the loudest tones never clip.
-const DB_REFERENCE = 60; // vol = 10^((db - 60) / 20), clamped [0.002, 1.0]
+// [DB_FLOOR_GAIN, 1.0]. The floor was historically 0.002 (~-54 dBFS) which is
+// still audible on a sensitive ear with a moderately loud system volume —
+// users with good hearing could detect tones the staircase considered "0 dB"
+// and the algorithm would never converge. The new floor (~-86 dBFS) is below
+// the perceptual threshold of typical consumer headsets at moderate volume.
+const DB_REFERENCE  = 60;       // vol = 10^((db - 60) / 20)
+const DB_FLOOR_GAIN = 0.00005;  // ~-86 dBFS, practically inaudible
 
 export function dbToVolume(db: number): number {
-  return Math.min(1.0, Math.max(0.002, Math.pow(10, (db - DB_REFERENCE) / 20)));
+  return Math.min(1.0, Math.max(DB_FLOOR_GAIN, Math.pow(10, (db - DB_REFERENCE) / 20)));
+}
+
+// ── Display offset ──────────────────────────────────────────────────────────
+// Internal PTT scale runs from -20 to 80 dB. End users find negative dB
+// values counter-intuitive on a non-clinical app, so we shift the rendered
+// value by +20 to get a 0..100 scale at the UI boundary ONLY.
+//
+// MUST NOT be applied to:
+//   • the algorithm (PTTAlgorithm, dbToVolume calls)
+//   • the persisted JSONB payload
+//   • calculateHearingScore / getHearingCategory / dbColor (all calibrated
+//     on the internal scale)
+//   • delta computations (e.g. left.avgDb - right.avgDb — offset cancels out)
+//   • AudiogramChart.dbToY coordinate math (consumes internal Y_LINES)
+//
+// MUST be applied to:
+//   • Every <Text>{value}</Text> that renders a PTT dB number to the user.
+//
+// The displayed unit stays "dB" (never "dB HL" — the scale is uncalibrated).
+export const DB_DISPLAY_OFFSET = 20;
+
+export function toDisplayDb(internalDb: number): number {
+  return Math.round(internalDb + DB_DISPLAY_OFFSET);
 }
 
 // ── Hearing category thresholds (relative dB scale, device-dependent) ────────

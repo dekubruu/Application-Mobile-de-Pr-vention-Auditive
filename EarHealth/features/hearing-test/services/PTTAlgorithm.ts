@@ -14,7 +14,12 @@ import type {
 
 export const PTT_FREQUENCIES        = [500, 1000, 2000, 4000];
 export const PTT_START_DB           = 40;     // initial volume per frequency
-export const PTT_MIN_DB             = 0;
+// PTT_MIN_DB is intentionally negative: the dB scale here is a software
+// attenuation relative to DB_REFERENCE, NOT calibrated dB HL. A good ear can
+// detect tones below 0 software-dB, so the staircase needs to be able to
+// descend further or it bottoms out and never converges. The dbToVolume floor
+// keeps the produced gain inaudible past ~-20 on a typical headset.
+export const PTT_MIN_DB             = -20;
 export const PTT_MAX_DB             = 80;
 
 // Phase steps (search vs. track) — modified Hughson-Westlake

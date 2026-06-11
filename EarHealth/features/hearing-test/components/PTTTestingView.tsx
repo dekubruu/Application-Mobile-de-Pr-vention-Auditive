@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import { formatFrequency } from '../constants/hearing-test.constants';
+import { formatFrequency, toDisplayDb } from '../constants/hearing-test.constants';
 import { PTT_FREQUENCIES } from '../services/PTTAlgorithm';
 import type { PTTEar, PTTFrequencyResult } from '../types/ptt.types';
 import { HoldButton } from './HoldButton';
@@ -86,7 +86,7 @@ export const PTTTestingView: React.FC<PTTTestingViewProps> = ({
         <View style={styles.divider} />
         <View style={styles.reading}>
           <Text style={styles.readingLabel}>VOLUME</Text>
-          <Text style={styles.readingValue}>{currentDb}</Text>
+          <Text style={styles.readingValue}>{toDisplayDb(currentDb)}</Text>
           <Text style={styles.readingUnit}>dB</Text>
         </View>
         <View style={styles.divider} />

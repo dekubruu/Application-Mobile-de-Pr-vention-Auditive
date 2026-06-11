@@ -8,6 +8,7 @@ import {
   getCategoryColor,
   getCategoryLabel,
   getHearingCategory,
+  toDisplayDb,
 } from '../constants/hearing-test.constants';
 import type { PTTEarResult } from '../types/ptt.types';
 import { AudiogramChart } from './AudiogramChart';
@@ -39,7 +40,7 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
       <View style={[styles.heroCard, { borderColor: catColor + '40' }]}>
         <Text style={styles.heroEyebrow}>PTA-4 (500–4000 Hz)</Text>
         <View style={styles.heroValueRow}>
-          <Text style={[styles.heroValue, { color: catColor }]}>{pta4}</Text>
+          <Text style={[styles.heroValue, { color: catColor }]}>{toDisplayDb(pta4)}</Text>
           <Text style={styles.heroUnit}>dB</Text>
         </View>
         <View style={[styles.gradeBadge, { backgroundColor: catBg }]}>
@@ -120,15 +121,18 @@ const EarSummary: React.FC<{ ear: 'left' | 'right'; result: PTTEarResult }> = ({
         <View style={[styles.earDotMarker, { backgroundColor: accent }]} />
         <Text style={styles.earTitle}>{isRight ? 'Oreille droite' : 'Oreille gauche'}</Text>
       </View>
-      <Text style={[styles.earDb, { color: accent }]}>{result.avgDb}</Text>
+      <Text style={[styles.earDb, { color: accent }]}>{toDisplayDb(result.avgDb)}</Text>
       <Text style={styles.earUnit}>dB moyen</Text>
     </View>
   );
 };
 
+// `db` here is the INTERNAL value; dbColor must keep receiving the internal
+// scale (its thresholds 20/40/60 are calibrated against it), only the
+// rendered text is offset.
 const DbCell: React.FC<{ db: number; reliable: boolean }> = ({ db, reliable }) => (
   <View style={[styles.colEar, styles.cellEar]}>
-    <Text style={[styles.cellDb, { color: dbColor(db) }]}>{db}</Text>
+    <Text style={[styles.cellDb, { color: dbColor(db) }]}>{toDisplayDb(db)}</Text>
     {!reliable && <Text style={styles.cellUnreliable}>~</Text>}
   </View>
 );
