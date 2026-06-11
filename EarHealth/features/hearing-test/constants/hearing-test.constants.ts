@@ -1,15 +1,114 @@
-export const FREQUENCY_START = 1000;
-export const FREQUENCY_MAX = 24000;
-export const FREQUENCY_PRECISION_THRESHOLD = 200;
-export const ASCENDING_PHASE_DOUBLE_UNTIL = 8000;
-export const ASCENDING_PHASE_STEP = 2000;
-export const DEFAULT_VOLUME = 0.2;
-export const DEFAULT_UPPER_BOUND = 24000;
+import type { HearingCategory } from '../types/hearing-test.types';
 
-export const THRESHOLD_EXCELLENT = 8000;
-export const THRESHOLD_GOOD = 12000;
-export const THRESHOLD_ACCEPTABLE = 16000;
+// ── dB → volume conversion ───────────────────────────────────────────────────
+// Reference level used to map a presentation dB value to a Web Audio gain in
+// [DB_FLOOR_GAIN, 1.0]. The floor was historically 0.002 (~-54 dBFS) which is
+// still audible on a sensitive ear with a moderately loud system volume —
+// users with good hearing could detect tones the staircase considered "0 dB"
+// and the algorithm would never converge. The new floor (~-86 dBFS) is below
+// the perceptual threshold of typical consumer headsets at moderate volume.
+const DB_REFERENCE  = 60;       // vol = 10^((db - 60) / 20)
+const DB_FLOOR_GAIN = 0.00005;  // ~-86 dBFS, practically inaudible
 
+export function dbToVolume(db: number): number {
+  return Math.min(1.0, Math.max(DB_FLOOR_GAIN, Math.pow(10, (db - DB_REFERENCE) / 20)));
+}
+
+// ── Display offset ──────────────────────────────────────────────────────────
+// Internal PTT scale runs from -20 to 80 dB. End users find negative dB
+// values counter-intuitive on a non-clinical app, so we shift the rendered
+// value by +20 to get a 0..100 scale at the UI boundary ONLY.
+//
+// MUST NOT be applied to:
+//   • the algorithm (PTTAlgorithm, dbToVolume calls)
+//   • the persisted JSONB payload
+//   • calculateHearingScore / getHearingCategory / dbColor (all calibrated
+//     on the internal scale)
+//   • delta computations (e.g. left.avgDb - right.avgDb — offset cancels out)
+//   • AudiogramChart.dbToY coordinate math (consumes internal Y_LINES)
+//
+// MUST be applied to:
+//   • Every <Text>{value}</Text> that renders a PTT dB number to the user.
+//
+// The displayed unit stays "dB" (never "dB HL" — the scale is uncalibrated).
+export const DB_DISPLAY_OFFSET = 20;
+
+export function toDisplayDb(internalDb: number): number {
+  return Math.round(internalDb + DB_DISPLAY_OFFSET);
+}
+
+// ── Hearing category thresholds (relative dB scale, device-dependent) ────────
+export const DB_NORMAL_MAX   = 20;
+export const DB_MILD_MAX     = 40;
+export const DB_MODERATE_MAX = 60;
+
+export function getHearingCategory(avgDb: number): HearingCategory {
+  if (avgDb <= DB_NORMAL_MAX)   return 'normal';
+  if (avgDb <= DB_MILD_MAX)     return 'mild';
+  if (avgDb <= DB_MODERATE_MAX) return 'moderate';
+  return 'severe';
+}
+
+export function getCategoryLabel(cat: HearingCategory): string {
+  switch (cat) {
+    case 'normal':   return 'Normale';
+    case 'mild':     return 'Légère';
+    case 'moderate': return 'Modérée';
+    case 'severe':   return 'Significative';
+  }
+}
+
+export function getCategoryColor(cat: HearingCategory): string {
+  switch (cat) {
+    case 'normal':   return '#15803D';
+    case 'mild':     return '#0B7285';
+    case 'moderate': return '#B45309';
+    case 'severe':   return '#B91C1C';
+  }
+}
+
+export function getCategoryBg(cat: HearingCategory): string {
+  switch (cat) {
+    case 'normal':   return '#DCFCE7';
+    case 'mild':     return '#E0F2F7';
+    case 'moderate': return '#FEF3C7';
+    case 'severe':   return '#FEE2E2';
+  }
+}
+
+export function getTestSummary(cat: HearingCategory): { status: string; interpretation: string } {
+  switch (cat) {
+    case 'normal':
+      return {
+        status: 'Normale',
+        interpretation: 'Audition dans la norme sur cet appareil. Réponses obtenues à faible volume.',
+      };
+    case 'mild':
+      return {
+        status: 'Légère',
+        interpretation: 'Légère difficulté détectée. Les sons doux peuvent être manqués.',
+      };
+    case 'moderate':
+      return {
+        status: 'Modérée',
+        interpretation: 'Difficulté modérée. Consultez un audiologiste pour un bilan complet.',
+      };
+    case 'severe':
+      return {
+        status: 'Significative',
+        interpretation: 'Difficulté significative. Une consultation audiologique est recommandée.',
+      };
+  }
+}
+
+export function formatFrequency(hz: number): string {
+  return hz >= 1000 ? `${hz / 1000} kHz` : `${hz} Hz`;
+}
+
+// ── WebView audio bridge (iOS / Android) ─────────────────────────────────────
+// Uses Web Audio API oscillator — zero allocation per presentation, no WAV blobs.
+// Fade-in/out on every tone eliminates click artifacts.
+// channel: 'left' → L only, 'right' → R only, 'both' → center.
 export const WEBVIEW_AUDIO_HTML = `
 <!DOCTYPE html>
 <html>
@@ -24,89 +123,127 @@ export const WEBVIEW_AUDIO_HTML = `
         }
       }
 
-      // Generates a PCM sine wave as a WAV data URI.
-      // Uses <audio> element instead of AudioContext — avoids the iOS WKWebView
-      // restriction where AudioContext.resume() requires a real user gesture but
-      // injectJavaScript() does not qualify as one.
-      // mediaPlaybackRequiresUserAction={false} on the WebView component is what
-      // allows audio.play() to succeed from injectJavaScript on iOS.
-      function generateSineWaveURI(frequency, durationSec) {
-        var sampleRate = 44100;
-        var numSamples = Math.floor(sampleRate * durationSec);
-        var buf = new ArrayBuffer(44 + numSamples * 2);
-        var v = new DataView(buf);
-        function w(off, str) { for (var i = 0; i < str.length; i++) v.setUint8(off + i, str.charCodeAt(i)); }
-        w(0, 'RIFF'); v.setUint32(4, 36 + numSamples * 2, true);
-        w(8, 'WAVE'); w(12, 'fmt ');
-        v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-        v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
-        v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-        w(36, 'data'); v.setUint32(40, numSamples * 2, true);
-        for (var i = 0; i < numSamples; i++) {
-          v.setInt16(44 + i * 2, Math.round(Math.sin(2 * Math.PI * frequency * i / sampleRate) * 32767), true);
+      var _ctx    = null;
+      var _osc    = null;
+      var _gain   = null;
+      var _panner = null;
+
+      function getCtx() {
+        if (!_ctx) {
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if (!AC) return null;
+          _ctx = new AC();
         }
-        var bytes = new Uint8Array(buf);
-        var binary = '';
-        for (var i = 0; i < bytes.length; i += 0x8000) {
-          binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
-        }
-        return 'data:audio/wav;base64,' + btoa(binary);
+        if (_ctx.state === 'suspended') { _ctx.resume(); }
+        return _ctx;
       }
 
-      var audioEl = document.createElement('audio');
-      audioEl.setAttribute('playsinline', '');
-      audioEl.loop = true;
-      audioEl.onerror = function() { sendToRN({ type: 'play_failed', reason: 'audio_error' }); };
+      function stopCurrent() {
+        if (_gain && _ctx) {
+          try {
+            _gain.gain.setValueAtTime(_gain.gain.value, _ctx.currentTime);
+            _gain.gain.linearRampToValueAtTime(0, _ctx.currentTime + 0.025);
+          } catch(e) {}
+        }
+        var osc = _osc;
+        _osc = null;
+        if (osc) {
+          setTimeout(function() {
+            try { osc.disconnect(); } catch(e) {}
+            try { osc.stop(); } catch(e) {}
+          }, 40);
+        }
+        if (_panner) { try { _panner.disconnect(); } catch(e) {} _panner = null; }
+        if (_gain)   { try { _gain.disconnect();   } catch(e) {} _gain   = null; }
+      }
 
-      window.playTone = function(frequency, volume) {
-        audioEl.src = generateSineWaveURI(frequency, 3);
-        audioEl.volume = Math.min(1, Math.max(0, volume));
-        audioEl.load();
-        audioEl.play().catch(function(err) {
-          sendToRN({ type: 'play_failed', reason: err && err.message ? err.message : 'rejected' });
-        });
+      window.playTone = function(frequency, volume, channel) {
+        try {
+          var ctx = getCtx();
+          if (!ctx) { sendToRN({ type: 'play_failed', reason: 'no_audio_context' }); return; }
+
+          stopCurrent();
+
+          var osc  = ctx.createOscillator();
+          var gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.value = frequency;
+
+          gain.gain.setValueAtTime(0, ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(Math.min(1, Math.max(0, volume)), ctx.currentTime + 0.025);
+
+          if (ctx.createStereoPanner) {
+            var panner = ctx.createStereoPanner();
+            panner.pan.value = channel === 'left' ? -1 : channel === 'right' ? 1 : 0;
+            osc.connect(panner);
+            panner.connect(gain);
+            _panner = panner;
+          } else {
+            var merger     = ctx.createChannelMerger(2);
+            var leftGain   = ctx.createGain();
+            var rightGain  = ctx.createGain();
+            leftGain.gain.value  = channel === 'right' ? 0 : 1;
+            rightGain.gain.value = channel === 'left'  ? 0 : 1;
+            osc.connect(leftGain);
+            osc.connect(rightGain);
+            leftGain.connect(merger,  0, 0);
+            rightGain.connect(merger, 0, 1);
+            merger.connect(gain);
+          }
+
+          gain.connect(ctx.destination);
+          osc.start();
+
+          _osc  = osc;
+          _gain = gain;
+        } catch(e) {
+          sendToRN({ type: 'play_failed', reason: e && e.message ? e.message : 'error' });
+        }
       };
 
       window.stopTone = function() {
-        audioEl.pause();
-        audioEl.currentTime = 0;
+        stopCurrent();
       };
 
       window.setVolume = function(volume) {
-        audioEl.volume = Math.min(1, Math.max(0, volume));
+        if (_gain && _ctx) {
+          _gain.gain.setValueAtTime(Math.min(1, Math.max(0, volume)), _ctx.currentTime);
+        }
       };
 
-      window.onload = function() { sendToRN({ type: 'audio_ready' }); };
+      window.setFrequency = function(frequency) {
+        if (_osc && _ctx) {
+          var f = Math.min(22000, Math.max(20, frequency));
+          try { _osc.frequency.setValueAtTime(f, _ctx.currentTime); } catch(e) {}
+        }
+      };
+
+      window.checkHeadphones = function() {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          navigator.mediaDevices.enumerateDevices().then(function(devices) {
+            var labels = [];
+            for (var i = 0; i < devices.length; i++) {
+              var d = devices[i];
+              if ((d.kind === 'audiooutput' || d.kind === 'audioinput') && d.label && d.label.length > 0) {
+                labels.push(d.label.toLowerCase());
+              }
+            }
+            sendToRN({ type: 'headset_detected', labels: labels });
+          }).catch(function() {
+            sendToRN({ type: 'headset_detected', labels: [] });
+          });
+        } else {
+          sendToRN({ type: 'headset_detected', labels: [] });
+        }
+      };
+
+      window.onload = function() {
+        sendToRN({ type: 'audio_ready' });
+        window.checkHeadphones();
+      };
       window.onerror = function() { sendToRN({ type: 'audio_ready' }); };
     <\/script>
   </body>
 </html>
 `;
-
-export function getTestSummary(threshold: number): { status: string; interpretation: string } {
-  if (threshold <= THRESHOLD_EXCELLENT) {
-    return {
-      status: '✓ Excellent',
-      interpretation:
-        'Votre audition est excellente. Vous pouvez détecter des fréquences élevées typiques de jeunes oreilles.',
-    };
-  }
-  if (threshold <= THRESHOLD_GOOD) {
-    return {
-      status: '✓ Bon',
-      interpretation: 'Votre audition est bonne. Seuil auditif normal pour un adulte.',
-    };
-  }
-  if (threshold <= THRESHOLD_ACCEPTABLE) {
-    return {
-      status: '⚠️ Acceptable',
-      interpretation:
-        'Perte auditive légère détectée. Vous avez une difficulté à entendre les hautes fréquences.',
-    };
-  }
-  return {
-    status: '⚠️ Perte détectée',
-    interpretation:
-      'Perte auditive importante détectée. Consultez un audiologiste pour un diagnostic complet.',
-  };
-}

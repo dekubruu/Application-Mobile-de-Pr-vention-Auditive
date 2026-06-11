@@ -13,11 +13,16 @@ function NavigationGuard() {
     if (!rootNavState?.key) return;
     if (loading) return;
 
-    const inAuth = (segments as string[])[0] === '(auth)';
+    const seg0          = (segments as string[])[0];
+    const inAuth        = seg0 === '(auth)';
+    const inTabs        = seg0 === '(tabs)';
+    // Legacy 'hearing-test' route was removed; only the new PTT/HFRT routes remain.
+    const inHearingTest = seg0 === 'high-frequency-test'
+                       || seg0 === 'pure-tone-test';
 
     if (!session && !inAuth) {
       router.replace('/(auth)/login' as any);
-    } else if (session && inAuth) {
+    } else if (session && !inTabs && !inHearingTest) {
       router.replace('/(tabs)/test' as any);
     }
   }, [rootNavState?.key, session, loading, segments]);
