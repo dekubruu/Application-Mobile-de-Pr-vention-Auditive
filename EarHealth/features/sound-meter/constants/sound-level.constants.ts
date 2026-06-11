@@ -61,3 +61,25 @@ export function getSoundLevelCategory(level: number): SoundLevelCategory {
 }
 
 export const LEVEL_HISTORY_SIZE = 10;
+
+// ── dBFS → dB(SPL) calibration ──────────────────────────────────────────────
+// The microphone metering APIs (expo-audio `metering`, Web Audio RMS) return a
+// level in dBFS — decibels relative to digital full scale: 0 ≈ clipping, and
+// quieter signals are negative. We approximate an absolute dB(SPL) reading by
+// adding a fixed offset to that dBFS value.
+//
+// HOW TO CALIBRATE: on the TARGET device, play/keep a steady sound source and
+// compare the displayed dB against a reference sound-level meter (e.g. the
+// NIOSH SLM app on iOS). Adjust this offset until they match. The correct value
+// is device- and microphone-dependent, so it can only be set empirically.
+//
+// Symptom of a too-low offset: the displayed dB plateaus well below reality in
+// loud environments. Use the __DEV__ diagnostic readout (raw dBFS) to tell the
+// two failure modes apart — see useSoundMeter.
+export const DBFS_TO_DB_OFFSET = 80;
+
+// Upper clamp for the displayed dB, shared by the meter hook (value clamp) and
+// SoundLevelBar (fill ratio) so they never diverge. If calibration pushes the
+// offset higher, raise this so loud environments are not capped — the
+// "Dangereux" category already covers everything above 120 dB.
+export const MAX_DB = 120;

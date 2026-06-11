@@ -1,13 +1,26 @@
-import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { LEVEL_HISTORY_SIZE, getSoundLevelCategory } from '../constants/sound-level.constants';
+import {
+  DBFS_TO_DB_OFFSET,
+  LEVEL_HISTORY_SIZE,
+  MAX_DB,
+  getSoundLevelCategory,
+} from '../constants/sound-level.constants';
 
 export const useSoundMeter = () => {
   const [isMeasuring,    setIsMeasuring]    = useState(false);
   const [soundLevel,     setSoundLevel]     = useState(0);
   const [averageLevel,   setAverageLevel]   = useState(0);
   const [statusMessage,  setStatusMessage]  = useState('Prêt');
+  // Raw metering value in dBFS, surfaced only in __DEV__ for on-device
+  // calibration diagnostics (null when not measuring or in production).
+  const [rawDbfs,        setRawDbfs]        = useState<number | null>(null);
 
   const webAudioContextRef = useRef<AudioContext | null>(null);
   const analyserRef        = useRef<AnalyserNode | null>(null);
@@ -18,8 +31,12 @@ export const useSoundMeter = () => {
 
   const isWeb = Platform.OS === 'web';
 
-  // useAudioRecorder manages lifecycle — auto-released on unmount
-  const recorder = useAudioRecorder({ isMeteringEnabled: true });
+  // useAudioRecorder manages lifecycle — auto-released on unmount.
+  // Spread HIGH_QUALITY preset to satisfy the full RecordingOptions type, and
+  // enable metering. HIGH_QUALITY records linear-ish high-fidelity audio, which
+  // is the rawest signal expo-audio exposes (the SDK has no AGC/noise-
+  // suppression toggle — see the web path for the constraints we CAN disable).
+  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
 
   useEffect(() => {
     return () => {
@@ -29,7 +46,7 @@ export const useSoundMeter = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const normalizeDb = (db: number) => Math.max(0, Math.min(120, Math.round(db)));
+  const normalizeDb = (db: number) => Math.max(0, Math.min(MAX_DB, Math.round(db)));
 
   const updateSoundLevel = (level: number) => {
     setSoundLevel(level);
@@ -55,7 +72,8 @@ export const useSoundMeter = () => {
     let db = 20 * Math.log10(rms);
     if (!isFinite(db)) db = -160;
 
-    updateSoundLevel(normalizeDb(db + 80));
+    if (__DEV__) setRawDbfs(db);
+    updateSoundLevel(normalizeDb(db + DBFS_TO_DB_OFFSET));
     rafRef.current = window.requestAnimationFrame(() => handleWebMeter(analyser));
   };
 
@@ -65,7 +83,17 @@ export const useSoundMeter = () => {
         setStatusMessage('Microphone non supporté par le navigateur');
         return;
       }
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Disable the browser's automatic input processing so the meter sees the
+      // raw signal — AGC in particular compresses loud input and would cap the
+      // reading (hypothesis b). These constraints are best-effort: a browser
+      // may ignore unsupported ones.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
       const AudioContextClass =
         (window as any).AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) {
@@ -126,7 +154,8 @@ export const useSoundMeter = () => {
       intervalRef.current = setInterval(() => {
         const state = recorder.getStatus();
         if (state.isRecording && typeof state.metering === 'number') {
-          updateSoundLevel(normalizeDb(state.metering + 80));
+          if (__DEV__) setRawDbfs(state.metering);
+          updateSoundLevel(normalizeDb(state.metering + DBFS_TO_DB_OFFSET));
         }
       }, 200);
 
@@ -145,6 +174,7 @@ export const useSoundMeter = () => {
 
   const startMeasurement = async () => {
     setSoundLevel(0);
+    setRawDbfs(null);
     setIsMeasuring(true);
     setStatusMessage('Démarrage...');
     if (isWeb) await startWebMeter();
@@ -155,6 +185,7 @@ export const useSoundMeter = () => {
     setIsMeasuring(false);
     setStatusMessage('Arrêté');
     setSoundLevel(0);
+    setRawDbfs(null);
     if (isWeb) stopWebMeter();
     else        await stopNativeMeter();
   };
@@ -170,6 +201,7 @@ export const useSoundMeter = () => {
     soundLevel,
     averageLevel,
     statusMessage,
+    rawDbfs,
     category: getSoundLevelCategory(soundLevel),
     toggleMeasure,
   };

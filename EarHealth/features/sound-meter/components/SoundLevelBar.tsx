@@ -1,8 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
-import { getSoundLevelCategory } from '../constants/sound-level.constants';
-
-const MAX_DB = 120;
+import { MAX_DB, getSoundLevelCategory } from '../constants/sound-level.constants';
 
 interface SoundLevelBarProps {
   soundLevel: number;
