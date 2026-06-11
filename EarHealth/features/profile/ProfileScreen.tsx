@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,7 +9,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -17,34 +16,92 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '@/components/Button';
 import { Card } from '@/components/Card';
+import { DateField } from '@/components/DateField';
+import { GenderSelector } from '@/components/GenderSelector';
 import { Colors } from '@/constants/colors';
 import { profileService } from '@/features/auth/services/profile.service';
 import { StatsGrid } from './components/StatsGrid';
 import { useProfileData } from './hooks/useProfileData';
+import { exportUserData } from './services/export.service';
+
+// ── Date helpers (local-parts based to avoid UTC off-by-one) ────────────────
+const pad = (n: number) => String(n).padStart(2, '0');
+const toISODate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseISODate = (iso: string) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+const formatFrDate = (iso: string) => {
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+};
+const defaultDob = () => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 25);
+  return d;
+};
+const genderLabel = (g?: string | null) =>
+  g === 'male' ? 'Homme' : g === 'female' ? 'Femme' : 'Non renseigné';
 
 export default function ProfileScreen() {
   const { profile, session, testsCount, daysSinceJoined, loadingStats, refreshProfile, signOut } =
     useProfileData();
-  const [darkMode, setDarkMode] = useState(false);
   const [editVisible, setEditVisible] = useState(false);
   const [editUsername, setEditUsername] = useState('');
+  const [editGender, setEditGender] = useState('');
+  const [editDob, setEditDob] = useState<Date>(defaultDob);
+  const [dobTouched, setDobTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    if (profile) setEditUsername(profile.username ?? '');
-  }, [profile]);
+  // Sync the form from the freshest profile each time the sheet opens, and
+  // reset the "touched" flag so an untouched DateField never writes a default.
+  const openEditSheet = () => {
+    setEditUsername(profile?.username ?? '');
+    setEditGender(profile?.gender ?? '');
+    setEditDob(profile?.date_of_birth ? parseISODate(profile.date_of_birth) : defaultDob());
+    setDobTouched(false);
+    setEditVisible(true);
+  };
+
+  const handleDobChange = (date: Date) => {
+    setEditDob(date);
+    setDobTouched(true);
+  };
 
   const handleSave = async () => {
     if (!session || !editUsername.trim()) return;
     setSaving(true);
     try {
-      await profileService.updateProfile(session.user.id, { username: editUsername.trim() });
+      // Only write date_of_birth when the user actually picked one, or when a
+      // value already existed in DB. A default must never be persisted silently.
+      const includeDob = dobTouched || profile?.date_of_birth != null;
+      await profileService.updateProfile(session.user.id, {
+        username: editUsername.trim(),
+        gender: editGender || null,
+        ...(includeDob ? { date_of_birth: toISODate(editDob) } : {}),
+      });
       await refreshProfile();
       setEditVisible(false);
     } catch {
       Alert.alert('Erreur', 'Impossible de sauvegarder les modifications.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!session || exporting) return;
+    setExporting(true);
+    try {
+      const res = await exportUserData(session.user.id);
+      if (res.status === 'unavailable') {
+        Alert.alert('Partage indisponible', "Le partage n'est pas disponible sur cet appareil.");
+      }
+    } catch {
+      Alert.alert('Erreur', "Impossible d'exporter, vérifiez votre connexion.");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -70,7 +127,7 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Card style={styles.profileCard} elevated>
-          <Pressable style={styles.editBtn} onPress={() => setEditVisible(true)} hitSlop={8}>
+          <Pressable style={styles.editBtn} onPress={openEditSheet} hitSlop={8}>
             <Ionicons name="pencil-outline" size={18} color={Colors.primary} />
           </Pressable>
           <View style={styles.avatarRing}>
@@ -82,6 +139,16 @@ export default function ProfileScreen() {
             <>
               <Text style={styles.userName}>{profile?.username ?? 'Utilisateur'}</Text>
               <Text style={styles.userEmail}>{session?.user.email ?? ''}</Text>
+              <View style={styles.infoRow}>
+                <Ionicons name="calendar-outline" size={14} color={Colors.textTertiary} />
+                <Text style={styles.infoText}>
+                  {profile?.date_of_birth ? formatFrDate(profile.date_of_birth) : 'Non renseigné'}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="person-outline" size={14} color={Colors.textTertiary} />
+                <Text style={styles.infoText}>{genderLabel(profile?.gender)}</Text>
+              </View>
             </>
           )}
         </Card>
@@ -93,29 +160,21 @@ export default function ProfileScreen() {
         />
 
         <Card style={styles.section} padding={0}>
-          <Text style={styles.sectionTitle}>Préférences</Text>
-          <View style={styles.row}>
-            <View style={styles.rowIcon}>
-              <Ionicons name="moon-outline" size={18} color={Colors.textSecondary} />
-            </View>
-            <Text style={styles.rowLabel}>Mode sombre</Text>
-            <Switch
-              value={darkMode}
-              onValueChange={setDarkMode}
-              trackColor={{ false: Colors.border, true: Colors.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </Card>
-
-        <Card style={styles.section} padding={0}>
           <Text style={styles.sectionTitle}>Données</Text>
-          <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={handleExport}
+            disabled={exporting}
+          >
             <View style={styles.rowIcon}>
               <Ionicons name="download-outline" size={18} color={Colors.textSecondary} />
             </View>
             <Text style={styles.rowLabel}>Exporter mes données</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+            {exporting ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+            )}
           </Pressable>
         </Card>
 
@@ -144,7 +203,7 @@ export default function ProfileScreen() {
         <View style={styles.sheet}>
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>Modifier le profil</Text>
-          <Text style={styles.sheetLabel}>Nom d'utilisateur</Text>
+          <Text style={styles.sheetLabel}>Nom d&apos;utilisateur</Text>
           <TextInput
             style={styles.sheetInput}
             value={editUsername}
@@ -154,6 +213,8 @@ export default function ProfileScreen() {
             autoCorrect={false}
             autoCapitalize="none"
           />
+          <GenderSelector value={editGender} onChange={setEditGender} />
+          <DateField label="Date de naissance" value={editDob} onChange={handleDobChange} />
           <Button
             title={saving ? 'Enregistrement…' : 'Enregistrer'}
             variant="primary"
@@ -219,6 +280,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   userEmail: { fontSize: 13, color: Colors.textSecondary },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  infoText: { fontSize: 13, color: Colors.textSecondary },
   section: { overflow: 'hidden', marginBottom: 12 },
   sectionTitle: {
     fontSize: 11,
