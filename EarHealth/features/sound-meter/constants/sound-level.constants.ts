@@ -62,20 +62,44 @@ export function getSoundLevelCategory(level: number): SoundLevelCategory {
 
 export const LEVEL_HISTORY_SIZE = 10;
 
+// ── Time weighting (IEC 61672) ──────────────────────────────────────────────
+// Cadence of the native metering loop. 125 ms gives the exponential smoother
+// below enough updates to behave at its time constant.
+export const POLLING_PERIOD_MS = 125;
+
+// "Slow" time weighting: exponential averaging with τ = 1 s (IEC 61672),
+// applied to the DISPLAYED dB so the reading is steady — NOT to the raw dBFS
+// shown by the __DEV__ diagnostic.
+export const TIME_WEIGHTING_TAU_S = 1.0;
+
+// Smoothing factor derived from the cadence and τ:
+//   smoothed += TIME_WEIGHTING_ALPHA * (current - smoothed)
+//   alpha = 1 - exp(-(period_s) / τ)
+// With 125 ms / 1 s → alpha ≈ 0.1175.
+export const TIME_WEIGHTING_ALPHA =
+  1 - Math.exp(-(POLLING_PERIOD_MS / 1000) / TIME_WEIGHTING_TAU_S);
+
 // ── dBFS → dB(SPL) calibration ──────────────────────────────────────────────
 // The microphone metering APIs (expo-audio `metering`, Web Audio RMS) return a
 // level in dBFS — decibels relative to digital full scale: 0 ≈ clipping, and
 // quieter signals are negative. We approximate an absolute dB(SPL) reading by
-// adding a fixed offset to that dBFS value.
+// adding a fixed, device-generic offset to that dBFS value.
 //
-// HOW TO CALIBRATE: on the TARGET device, play/keep a steady sound source and
-// compare the displayed dB against a reference sound-level meter (e.g. the
-// NIOSH SLM app on iOS). Adjust this offset until they match. The correct value
-// is device- and microphone-dependent, so it can only be set empirically.
+// CALIBRATION PROTOCOL (run on the TARGET device, with the __DEV__ diagnostic
+// card visible, next to a reference SLM app — NIOSH SLM or Decibel X):
+//   1. Measure three conditions side by side and note (raw dBFS → reference dB):
+//        a. silence (quiet room)
+//        b. voice at ~1 m
+//        c. loud music / loud environment
+//   2. offset = reference_value − raw_dBFS, read on the MID-to-LOUD condition
+//      (c, or b if c clips the reference).
+//   3. Sanity check: the gap (reference − raw_dBFS) should stay roughly CONSTANT
+//      across the three levels. A drifting gap means the mic is non-linear
+//      (AGC) — a single offset can then only approximate it.
 //
-// Symptom of a too-low offset: the displayed dB plateaus well below reality in
-// loud environments. Use the __DEV__ diagnostic readout (raw dBFS) to tell the
-// two failure modes apart — see useSoundMeter.
+// NOTE: if the calibrated offset ends up more than ~40 above the current value
+// (i.e. would push readings past 120), also raise MAX_DB to 130/140. MAX_DB is
+// shared by the hook clamp and SoundLevelBar, so it is a single edit.
 export const DBFS_TO_DB_OFFSET = 80;
 
 // Upper clamp for the displayed dB, shared by the meter hook (value clamp) and

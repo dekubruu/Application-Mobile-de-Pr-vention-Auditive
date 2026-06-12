@@ -13,6 +13,10 @@ export const SoundLevelGuide: React.FC = () => (
         <Text style={styles.text}>{entry.text}</Text>
       </View>
     ))}
+    <Text style={styles.disclaimer}>
+      Mesure large bande non pondérée, à titre indicatif. Les seuils de référence
+      (85 dB, etc.) sont exprimés en dB(A).
+    </Text>
   </Card>
 );
 
@@ -46,5 +50,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     lineHeight: 19,
+  },
+  disclaimer: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    lineHeight: 16,
+    marginTop: 14,
+    fontStyle: 'italic',
   },
 });

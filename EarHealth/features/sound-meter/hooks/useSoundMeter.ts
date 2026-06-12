@@ -10,6 +10,8 @@ import {
   DBFS_TO_DB_OFFSET,
   LEVEL_HISTORY_SIZE,
   MAX_DB,
+  POLLING_PERIOD_MS,
+  TIME_WEIGHTING_ALPHA,
   getSoundLevelCategory,
 } from '../constants/sound-level.constants';
 
@@ -28,6 +30,7 @@ export const useSoundMeter = () => {
   const rafRef             = useRef<number | null>(null);
   const intervalRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const levelHistoryRef    = useRef<number[]>([]);
+  const smoothedRef        = useRef<number | null>(null);
 
   const isWeb = Platform.OS === 'web';
 
@@ -48,16 +51,22 @@ export const useSoundMeter = () => {
 
   const normalizeDb = (db: number) => Math.max(0, Math.min(MAX_DB, Math.round(db)));
 
-  const updateSoundLevel = (level: number) => {
-    setSoundLevel(level);
+  // Apply "Slow" exponential time-weighting (IEC 61672, τ=1s) to the DISPLAYED
+  // dB. The rolling "Moyenne" is kept as a short-window mean of the RAW
+  // (pre-smoothing) readings, so it remains a genuinely distinct statistic from
+  // the Slow-weighted instantaneous level rather than a near-duplicate of it.
+  const updateSoundLevel = (db: number) => {
+    const prev = smoothedRef.current;
+    const smoothed = prev === null ? db : prev + TIME_WEIGHTING_ALPHA * (db - prev);
+    smoothedRef.current = smoothed;
+    setSoundLevel(Math.round(smoothed));
+
     const history = levelHistoryRef.current;
-    history.push(level);
+    history.push(db);
     if (history.length > LEVEL_HISTORY_SIZE) history.shift();
-    levelHistoryRef.current = history;
-    const average = Math.round(
-      history.reduce((sum, v) => sum + v, 0) / Math.max(history.length, 1),
+    setAverageLevel(
+      Math.round(history.reduce((sum, v) => sum + v, 0) / Math.max(history.length, 1)),
     );
-    setAverageLevel(average);
   };
 
   // ── Web measurement ───────────────────────────────────────────────────────
@@ -73,6 +82,10 @@ export const useSoundMeter = () => {
     if (!isFinite(db)) db = -160;
 
     if (__DEV__) setRawDbfs(db);
+    // NB: on web this runs once per animation frame (~16 ms), not every
+    // POLLING_PERIOD_MS, so both the smoother's effective time constant AND the
+    // "Moyenne" window are shorter than on native. Web is best-effort (the app
+    // is mobile-only).
     updateSoundLevel(normalizeDb(db + DBFS_TO_DB_OFFSET));
     rafRef.current = window.requestAnimationFrame(() => handleWebMeter(analyser));
   };
@@ -157,7 +170,7 @@ export const useSoundMeter = () => {
           if (__DEV__) setRawDbfs(state.metering);
           updateSoundLevel(normalizeDb(state.metering + DBFS_TO_DB_OFFSET));
         }
-      }, 200);
+      }, POLLING_PERIOD_MS);
 
       setStatusMessage('Mesure en cours');
     } catch {
@@ -174,7 +187,12 @@ export const useSoundMeter = () => {
 
   const startMeasurement = async () => {
     setSoundLevel(0);
+    setAverageLevel(0);
     setRawDbfs(null);
+    // Reset the time-weighting state so a new session never inherits a phantom
+    // value from the previous one.
+    smoothedRef.current = null;
+    levelHistoryRef.current = [];
     setIsMeasuring(true);
     setStatusMessage('Démarrage...');
     if (isWeb) await startWebMeter();
@@ -185,7 +203,10 @@ export const useSoundMeter = () => {
     setIsMeasuring(false);
     setStatusMessage('Arrêté');
     setSoundLevel(0);
+    setAverageLevel(0);
     setRawDbfs(null);
+    smoothedRef.current = null;
+    levelHistoryRef.current = [];
     if (isWeb) stopWebMeter();
     else        await stopNativeMeter();
   };
