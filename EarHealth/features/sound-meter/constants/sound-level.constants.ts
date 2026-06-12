@@ -68,8 +68,8 @@ export const LEVEL_HISTORY_SIZE = 10;
 export const POLLING_PERIOD_MS = 125;
 
 // "Slow" time weighting: exponential averaging with τ = 1 s (IEC 61672),
-// applied to the DISPLAYED dB so the reading is steady — NOT to the raw dBFS
-// shown by the __DEV__ diagnostic.
+// applied to the DISPLAYED dB so the reading is steady — NOT to the raw
+// per-sample dBFS.
 export const TIME_WEIGHTING_TAU_S = 1.0;
 
 // Smoothing factor derived from the cadence and τ:
@@ -85,22 +85,27 @@ export const TIME_WEIGHTING_ALPHA =
 // quieter signals are negative. We approximate an absolute dB(SPL) reading by
 // adding a fixed, device-generic offset to that dBFS value.
 //
-// CALIBRATION PROTOCOL (run on the TARGET device, with the __DEV__ diagnostic
-// card visible, next to a reference SLM app — NIOSH SLM or Decibel X):
-//   1. Measure three conditions side by side and note (raw dBFS → reference dB):
-//        a. silence (quiet room)
-//        b. voice at ~1 m
-//        c. loud music / loud environment
-//   2. offset = reference_value − raw_dBFS, read on the MID-to-LOUD condition
-//      (c, or b if c clips the reference).
-//   3. Sanity check: the gap (reference − raw_dBFS) should stay roughly CONSTANT
-//      across the three levels. A drifting gap means the mic is non-linear
-//      (AGC) — a single offset can then only approximate it.
+// CALIBRATION RECORD
+//   Date:    2026-06-12
+//   Device:  iPhone 13 Pro Max
+//   Ref app: NIOSH SLM (iOS)
+//   Measurements (raw dBFS → NIOSH dB):
+//     silence:    −45/−49 dBFS → 39–42 dB
+//     voice @1 m: −28/−35 dBFS → 54–56 dB
+//     loud music: −8/−17 dBFS → 71–82 dB
+//   The gap (NIOSH − raw dBFS) stayed stable (~83–89) across all three levels,
+//   so a single offset is valid. Chosen: 86 (mid-range of the gap).
 //
-// NOTE: if the calibrated offset ends up more than ~40 above the current value
-// (i.e. would push readings past 120), also raise MAX_DB to 130/140. MAX_DB is
-// shared by the hook clamp and SoundLevelBar, so it is a single edit.
-export const DBFS_TO_DB_OFFSET = 80;
+// PROTOCOL to re-calibrate on another device: temporarily re-expose the raw
+// dBFS, measure the three conditions above side by side with a reference SLM,
+// set offset = reference − raw_dBFS on the mid/loud condition, and check the gap
+// stays roughly constant across levels (a drift means mic AGC, which a single
+// offset can only approximate).
+//
+// NOTE: with offset 86 the displayed value saturates at 86 dB (raw dBFS ≤ 0),
+// so MAX_DB = 120 is never reached and stays as-is. A future device needing an
+// offset > 120 would require raising MAX_DB too (shared hook clamp + bar).
+export const DBFS_TO_DB_OFFSET = 86;
 
 // Upper clamp for the displayed dB, shared by the meter hook (value clamp) and
 // SoundLevelBar (fill ratio) so they never diverge. If calibration pushes the

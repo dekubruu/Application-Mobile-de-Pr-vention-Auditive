@@ -20,9 +20,6 @@ export const useSoundMeter = () => {
   const [soundLevel,     setSoundLevel]     = useState(0);
   const [averageLevel,   setAverageLevel]   = useState(0);
   const [statusMessage,  setStatusMessage]  = useState('Prêt');
-  // Raw metering value in dBFS, surfaced only in __DEV__ for on-device
-  // calibration diagnostics (null when not measuring or in production).
-  const [rawDbfs,        setRawDbfs]        = useState<number | null>(null);
 
   const webAudioContextRef = useRef<AudioContext | null>(null);
   const analyserRef        = useRef<AnalyserNode | null>(null);
@@ -81,7 +78,6 @@ export const useSoundMeter = () => {
     let db = 20 * Math.log10(rms);
     if (!isFinite(db)) db = -160;
 
-    if (__DEV__) setRawDbfs(db);
     // NB: on web this runs once per animation frame (~16 ms), not every
     // POLLING_PERIOD_MS, so both the smoother's effective time constant AND the
     // "Moyenne" window are shorter than on native. Web is best-effort (the app
@@ -167,7 +163,6 @@ export const useSoundMeter = () => {
       intervalRef.current = setInterval(() => {
         const state = recorder.getStatus();
         if (state.isRecording && typeof state.metering === 'number') {
-          if (__DEV__) setRawDbfs(state.metering);
           updateSoundLevel(normalizeDb(state.metering + DBFS_TO_DB_OFFSET));
         }
       }, POLLING_PERIOD_MS);
@@ -188,7 +183,6 @@ export const useSoundMeter = () => {
   const startMeasurement = async () => {
     setSoundLevel(0);
     setAverageLevel(0);
-    setRawDbfs(null);
     // Reset the time-weighting state so a new session never inherits a phantom
     // value from the previous one.
     smoothedRef.current = null;
@@ -204,7 +198,6 @@ export const useSoundMeter = () => {
     setStatusMessage('Arrêté');
     setSoundLevel(0);
     setAverageLevel(0);
-    setRawDbfs(null);
     smoothedRef.current = null;
     levelHistoryRef.current = [];
     if (isWeb) stopWebMeter();
@@ -222,7 +215,6 @@ export const useSoundMeter = () => {
     soundLevel,
     averageLevel,
     statusMessage,
-    rawDbfs,
     category: getSoundLevelCategory(soundLevel),
     toggleMeasure,
   };

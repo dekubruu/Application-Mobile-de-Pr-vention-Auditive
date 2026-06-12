@@ -6,11 +6,10 @@ import { Colors } from '@/constants/colors';
 import { SoundLevelBar } from './components/SoundLevelBar';
 import { SoundLevelDisplay } from './components/SoundLevelDisplay';
 import { SoundLevelGuide } from './components/SoundLevelGuide';
-import { DBFS_TO_DB_OFFSET } from './constants/sound-level.constants';
 import { useSoundMeter } from './hooks/useSoundMeter';
 
 export default function SoundMeterScreen() {
-  const { isWeb, isMeasuring, soundLevel, averageLevel, statusMessage, rawDbfs, category, toggleMeasure } =
+  const { isWeb, isMeasuring, soundLevel, averageLevel, statusMessage, category, toggleMeasure } =
     useSoundMeter();
 
   return (
@@ -39,27 +38,6 @@ export default function SoundMeterScreen() {
             ? 'Autorisez le microphone dans le navigateur.'
             : 'Autorisez le microphone sur votre appareil.'}
         </Text>
-
-        {/* TEMPORARY calibration diagnostic — visible only in development. */}
-        {__DEV__ && (
-          <View style={styles.debugBox}>
-            <Text style={styles.debugTitle}>🔧 Diagnostic calibration (DEV)</Text>
-            <View style={styles.debugRow}>
-              <Text style={styles.debugLabel}>metering brut</Text>
-              <Text style={styles.debugValue}>
-                {rawDbfs !== null ? `${rawDbfs.toFixed(1)} dBFS` : '—'}
-              </Text>
-            </View>
-            <View style={styles.debugRow}>
-              <Text style={styles.debugLabel}>dB affiché</Text>
-              <Text style={styles.debugValue}>{soundLevel} dB</Text>
-            </View>
-            <View style={styles.debugRow}>
-              <Text style={styles.debugLabel}>offset appliqué</Text>
-              <Text style={styles.debugValue}>+{DBFS_TO_DB_OFFSET}</Text>
-            </View>
-          </View>
-        )}
 
         <SoundLevelGuide />
       </ScrollView>
@@ -108,35 +86,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
     lineHeight: 19,
-  },
-  debugBox: {
-    borderWidth: 1,
-    borderColor: Colors.warning,
-    backgroundColor: Colors.warningLight,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 24,
-  },
-  debugTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.warning,
-    marginBottom: 8,
-  },
-  debugRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  debugLabel: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  debugValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.text,
-    fontVariant: ['tabular-nums'],
   },
 });
