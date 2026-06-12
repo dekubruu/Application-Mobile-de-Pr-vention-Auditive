@@ -117,3 +117,10 @@ export const MAX_DB = 120;
 // reading can no longer rise (it saturates at DBFS_TO_DB_OFFSET), so the meter
 // flags the value as out-of-range ("86+") rather than presenting it as exact.
 export const OVER_RANGE_DBFS = -2;
+
+// NIOSH recommended-exposure anchor: at 85 dB(A) the safe daily limit is ~8 h,
+// and the allowed time roughly halves per +3 dB above it. We surface ONLY this
+// 85 dB anchor in the over-range alert — the meter saturates there and cannot
+// measure the true (higher) level, so quoting a precise duration for it would
+// be dishonest.
+export const NIOSH_85DB_SAFE_HOURS = 8;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import type { SoundLevelCategory } from '../constants/sound-level.constants';
+import { NIOSH_85DB_SAFE_HOURS, type SoundLevelCategory } from '../constants/sound-level.constants';
 
 interface SoundLevelDisplayProps {
   soundLevel: number;
@@ -27,7 +27,18 @@ export const SoundLevelDisplay: React.FC<SoundLevelDisplayProps> = ({
     </View>
     <Text style={styles.average}>Moyenne : {averageLevel} dB</Text>
     {overRange && (
-      <Text style={styles.overRange}>Niveau au-delà de la plage mesurable</Text>
+      <View style={styles.alertBox}>
+        <Text style={styles.alertTitle}>Niveau sonore élevé</Text>
+        <Text style={styles.alertBody}>
+          Au-delà de la plage de mesure de l&apos;appareil (~85 dB). À ce niveau,
+          l&apos;exposition prolongée présente un risque auditif — limitez la durée
+          ou protégez-vous.
+        </Text>
+        <Text style={styles.alertNote}>
+          Exposition sûre : environ {NIOSH_85DB_SAFE_HOURS} h/jour à 85 dB ; le
+          risque augmente fortement au-delà.
+        </Text>
+      </View>
     )}
   </View>
 );
@@ -35,6 +46,7 @@ export const SoundLevelDisplay: React.FC<SoundLevelDisplayProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
+    alignSelf: 'stretch',
   },
   level: {
     fontSize: 80,
@@ -72,11 +84,30 @@ const styles = StyleSheet.create({
     color: Colors.textTertiary,
     fontWeight: '500',
   },
-  overRange: {
-    fontSize: 12,
+  alertBox: {
+    alignSelf: 'stretch',
+    backgroundColor: Colors.warningLight,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: 14,
+    gap: 6,
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.warning,
-    fontWeight: '600',
-    marginTop: 6,
-    textAlign: 'center',
+  },
+  alertBody: {
+    fontSize: 13,
+    color: Colors.text,
+    lineHeight: 19,
+  },
+  alertNote: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
   },
 });
