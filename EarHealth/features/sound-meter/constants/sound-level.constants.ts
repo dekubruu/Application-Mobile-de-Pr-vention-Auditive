@@ -112,3 +112,8 @@ export const DBFS_TO_DB_OFFSET = 86;
 // offset higher, raise this so loud environments are not capped — the
 // "Dangereux" category already covers everything above 120 dB.
 export const MAX_DB = 120;
+
+// Raw dBFS at/above which the input is essentially at digital full scale: the
+// reading can no longer rise (it saturates at DBFS_TO_DB_OFFSET), so the meter
+// flags the value as out-of-range ("86+") rather than presenting it as exact.
+export const OVER_RANGE_DBFS = -2;

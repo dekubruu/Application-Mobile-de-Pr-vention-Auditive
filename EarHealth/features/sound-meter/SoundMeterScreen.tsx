@@ -9,7 +9,7 @@ import { SoundLevelGuide } from './components/SoundLevelGuide';
 import { useSoundMeter } from './hooks/useSoundMeter';
 
 export default function SoundMeterScreen() {
-  const { isWeb, isMeasuring, soundLevel, averageLevel, statusMessage, category, toggleMeasure } =
+  const { isWeb, isMeasuring, soundLevel, averageLevel, statusMessage, category, overRange, toggleMeasure } =
     useSoundMeter();
 
   return (
@@ -20,7 +20,7 @@ export default function SoundMeterScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.meter}>
-          <SoundLevelDisplay soundLevel={soundLevel} averageLevel={averageLevel} category={category} />
+          <SoundLevelDisplay soundLevel={soundLevel} averageLevel={averageLevel} category={category} overRange={overRange} />
           <SoundLevelBar soundLevel={soundLevel} />
         </View>
 

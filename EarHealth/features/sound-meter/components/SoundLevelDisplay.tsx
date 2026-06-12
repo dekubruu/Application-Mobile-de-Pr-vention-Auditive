@@ -7,21 +7,28 @@ interface SoundLevelDisplayProps {
   soundLevel: number;
   averageLevel: number;
   category: SoundLevelCategory;
+  overRange: boolean;
 }
 
 export const SoundLevelDisplay: React.FC<SoundLevelDisplayProps> = ({
   soundLevel,
   averageLevel,
   category,
+  overRange,
 }) => (
   <View style={styles.container}>
-    <Text style={[styles.level, { color: category.color }]}>{soundLevel}</Text>
+    <Text style={[styles.level, { color: category.color }]}>
+      {soundLevel}{overRange ? '+' : ''}
+    </Text>
     <Text style={styles.unit}>dB</Text>
     <View style={[styles.badge, { backgroundColor: category.color + '18' }]}>
       <View style={[styles.dot, { backgroundColor: category.color }]} />
       <Text style={[styles.badgeLabel, { color: category.color }]}>{category.label}</Text>
     </View>
     <Text style={styles.average}>Moyenne : {averageLevel} dB</Text>
+    {overRange && (
+      <Text style={styles.overRange}>Niveau au-delà de la plage mesurable</Text>
+    )}
   </View>
 );
 
@@ -64,5 +71,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textTertiary,
     fontWeight: '500',
+  },
+  overRange: {
+    fontSize: 12,
+    color: Colors.warning,
+    fontWeight: '600',
+    marginTop: 6,
+    textAlign: 'center',
   },
 });

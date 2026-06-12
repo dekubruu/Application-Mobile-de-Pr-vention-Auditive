@@ -10,6 +10,7 @@ import {
   DBFS_TO_DB_OFFSET,
   LEVEL_HISTORY_SIZE,
   MAX_DB,
+  OVER_RANGE_DBFS,
   POLLING_PERIOD_MS,
   TIME_WEIGHTING_ALPHA,
   getSoundLevelCategory,
@@ -20,6 +21,9 @@ export const useSoundMeter = () => {
   const [soundLevel,     setSoundLevel]     = useState(0);
   const [averageLevel,   setAverageLevel]   = useState(0);
   const [statusMessage,  setStatusMessage]  = useState('Prêt');
+  // True when the raw input sits at/near digital full scale: the reading has
+  // hit its measurable ceiling and is shown as "86+" instead of an exact value.
+  const [overRange,      setOverRange]      = useState(false);
 
   const webAudioContextRef = useRef<AudioContext | null>(null);
   const analyserRef        = useRef<AnalyserNode | null>(null);
@@ -78,6 +82,7 @@ export const useSoundMeter = () => {
     let db = 20 * Math.log10(rms);
     if (!isFinite(db)) db = -160;
 
+    setOverRange(db >= OVER_RANGE_DBFS);
     // NB: on web this runs once per animation frame (~16 ms), not every
     // POLLING_PERIOD_MS, so both the smoother's effective time constant AND the
     // "Moyenne" window are shorter than on native. Web is best-effort (the app
@@ -163,6 +168,7 @@ export const useSoundMeter = () => {
       intervalRef.current = setInterval(() => {
         const state = recorder.getStatus();
         if (state.isRecording && typeof state.metering === 'number') {
+          setOverRange(state.metering >= OVER_RANGE_DBFS);
           updateSoundLevel(normalizeDb(state.metering + DBFS_TO_DB_OFFSET));
         }
       }, POLLING_PERIOD_MS);
@@ -183,6 +189,7 @@ export const useSoundMeter = () => {
   const startMeasurement = async () => {
     setSoundLevel(0);
     setAverageLevel(0);
+    setOverRange(false);
     // Reset the time-weighting state so a new session never inherits a phantom
     // value from the previous one.
     smoothedRef.current = null;
@@ -198,6 +205,7 @@ export const useSoundMeter = () => {
     setStatusMessage('Arrêté');
     setSoundLevel(0);
     setAverageLevel(0);
+    setOverRange(false);
     smoothedRef.current = null;
     levelHistoryRef.current = [];
     if (isWeb) stopWebMeter();
@@ -215,6 +223,7 @@ export const useSoundMeter = () => {
     soundLevel,
     averageLevel,
     statusMessage,
+    overRange,
     category: getSoundLevelCategory(soundLevel),
     toggleMeasure,
   };
