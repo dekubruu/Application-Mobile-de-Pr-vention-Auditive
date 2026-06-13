@@ -8,6 +8,7 @@ import {
   getCategoryColor,
   getCategoryLabel,
   getHearingCategory,
+  getTestSummary,
   toDisplayDb,
 } from '../constants/hearing-test.constants';
 import type { PTTEarResult } from '../types/ptt.types';
@@ -30,6 +31,7 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
   const catColor = getCategoryColor(category);
   const catBg    = getCategoryBg(category);
   const catLabel = getCategoryLabel(category);
+  const summary  = getTestSummary(category);
 
   // Imbalance between ears (absolute PTA-4 delta)
   const imbalance = left && right ? Math.abs(left.avgDb - right.avgDb) : 0;
@@ -96,6 +98,15 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
               </View>
             );
           })}
+        </View>
+      </View>
+
+      {/* Recommandation personnalisée (indicative, non-diagnostic) */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Recommandation</Text>
+        <View style={[styles.adviceCard, { borderColor: catColor + '40', backgroundColor: catBg }]}>
+          <Ionicons name="bulb-outline" size={18} color={catColor} />
+          <Text style={styles.adviceText}>{summary.interpretation}</Text>
         </View>
       </View>
 
@@ -271,6 +282,16 @@ const styles = StyleSheet.create({
   cellEar:    { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2 },
   cellDb:     { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
   cellUnreliable: { fontSize: 11, color: Colors.warning, fontWeight: '700' },
+
+  adviceCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  adviceText: { flex: 1, fontSize: 13, color: Colors.text, lineHeight: 19, fontWeight: '500' },
 
   disclaimer: {
     flexDirection: 'row',
