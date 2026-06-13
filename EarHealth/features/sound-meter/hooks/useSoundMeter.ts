@@ -1,4 +1,9 @@
-import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { LEVEL_HISTORY_SIZE, getSoundLevelCategory } from '../constants/sound-level.constants';
@@ -18,8 +23,10 @@ export const useSoundMeter = () => {
 
   const isWeb = Platform.OS === 'web';
 
-  // useAudioRecorder manages lifecycle — auto-released on unmount
-  const recorder = useAudioRecorder({ isMeteringEnabled: true });
+  // useAudioRecorder manages lifecycle — auto-released on unmount.
+  // Spread HIGH_QUALITY so the full RecordingOptions type is satisfied, and
+  // enable metering (the level read each tick comes from getStatus().metering).
+  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
 
   useEffect(() => {
     return () => {
