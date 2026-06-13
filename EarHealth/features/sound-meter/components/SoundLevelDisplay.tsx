@@ -30,7 +30,7 @@ export const SoundLevelDisplay: React.FC<SoundLevelDisplayProps> = ({
       <View style={styles.alertBox}>
         <Text style={styles.alertTitle}>Niveau sonore élevé</Text>
         <Text style={styles.alertBody}>
-          Au-delà de la plage de mesure de l&apos;appareil (~85 dB). À ce niveau,
+          Au-delà de la plage de mesure de l&apos;appareil (~90 dB). À ce niveau,
           l&apos;exposition prolongée présente un risque auditif — limitez la durée
           ou protégez-vous.
         </Text>
