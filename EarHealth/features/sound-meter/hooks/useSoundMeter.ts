@@ -22,7 +22,7 @@ export const useSoundMeter = () => {
   const [averageLevel,   setAverageLevel]   = useState(0);
   const [statusMessage,  setStatusMessage]  = useState('Prêt');
   // True when the raw input sits at/near digital full scale: the reading has
-  // hit its measurable ceiling and is shown as "90+" instead of an exact value.
+  // hit its measurable ceiling and is shown as "88+" instead of an exact value.
   const [overRange,      setOverRange]      = useState(false);
 
   const webAudioContextRef = useRef<AudioContext | null>(null);

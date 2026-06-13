@@ -94,9 +94,9 @@ export const TIME_WEIGHTING_ALPHA =
 //     voice @1 m: −28/−35 dBFS → 54–56 dB
 //     loud music: −8/−17 dBFS → 71–82 dB
 //   The gap (NIOSH − raw dBFS) stayed stable (~83–89) across all three levels,
-//   so a single offset is valid. Measured mid-range ≈ 86; offset set to 90
-//   (raised +4 on 2026-06-13 for an earlier / slightly-conservative reading,
-//   so it now reads ~1–4 dB above the NIOSH reference).
+//   so a single offset is valid. Measured mid-range ≈ 86; offset set to 88
+//   (+2 on 2026-06-13, slightly above the calibrated mid-range for a mildly
+//   conservative reading, so it reads ~0–4 dB above the NIOSH reference).
 //
 // PROTOCOL to re-calibrate on another device: temporarily re-expose the raw
 // dBFS, measure the three conditions above side by side with a reference SLM,
@@ -104,10 +104,10 @@ export const TIME_WEIGHTING_ALPHA =
 // stays roughly constant across levels (a drift means mic AGC, which a single
 // offset can only approximate).
 //
-// NOTE: with offset 90 the displayed value saturates at 90 dB (raw dBFS ≤ 0),
+// NOTE: with offset 88 the displayed value saturates at 88 dB (raw dBFS ≤ 0),
 // so MAX_DB = 120 is never reached and stays as-is. A future device needing an
 // offset > 120 would require raising MAX_DB too (shared hook clamp + bar).
-export const DBFS_TO_DB_OFFSET = 90;
+export const DBFS_TO_DB_OFFSET = 88;
 
 // Upper clamp for the displayed dB, shared by the meter hook (value clamp) and
 // SoundLevelBar (fill ratio) so they never diverge. If calibration pushes the
@@ -117,7 +117,7 @@ export const MAX_DB = 120;
 
 // Raw dBFS at/above which the input is essentially at digital full scale: the
 // reading can no longer rise (it saturates at DBFS_TO_DB_OFFSET), so the meter
-// flags the value as out-of-range ("90+") rather than presenting it as exact.
+// flags the value as out-of-range ("88+") rather than presenting it as exact.
 export const OVER_RANGE_DBFS = -2;
 
 // NIOSH recommended-exposure anchor: at 85 dB(A) the safe daily limit is ~8 h,
