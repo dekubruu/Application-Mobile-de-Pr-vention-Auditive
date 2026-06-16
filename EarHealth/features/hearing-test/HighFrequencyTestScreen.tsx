@@ -12,7 +12,6 @@ import { HFRTResultView } from './components/HFRTResultView';
 import { HFRTTestingView } from './components/HFRTTestingView';
 import { SaveBanner } from './components/SaveBanner';
 import { useHighFrequencyTest } from './hooks/useHighFrequencyTest';
-import { detectFromLabels } from './services/HeadphoneDetector';
 
 export default function HighFrequencyTestScreen() {
   const router = useRouter();
@@ -22,8 +21,6 @@ export default function HighFrequencyTestScreen() {
   const audioRef = useRef<AudioEngineHandle | null>(null);
   const [audioReady, setAudioReady] = useState(false);
   const [gatePassed, setGatePassed] = useState(false);
-  const [headsetDetected, setHeadsetDetected] = useState(false);
-  const [headsetLabel, setHeadsetLabel]       = useState<string | null>(null);
 
   const {
     stage,
@@ -37,12 +34,6 @@ export default function HighFrequencyTestScreen() {
     onHoldStart,
     onHoldEnd,
   } = useHighFrequencyTest({ audio: audioRef, audioReady, userId });
-
-  const handleHeadsetDetected = (labels: string[]) => {
-    const r = detectFromLabels(labels);
-    setHeadsetDetected(r.connected);
-    setHeadsetLabel(r.label);
-  };
 
   const handleExit = () => {
     if (stage === 'testing') {
@@ -64,7 +55,6 @@ export default function HighFrequencyTestScreen() {
       <AudioEngine
         ref={audioRef}
         onReady={() => setAudioReady(true)}
-        onHeadsetDetected={handleHeadsetDetected}
       />
 
       <View style={styles.header}>
@@ -77,11 +67,8 @@ export default function HighFrequencyTestScreen() {
 
       {!gatePassed && (
         <HeadphoneGateView
-          detected={headsetDetected}
-          label={headsetLabel}
           onNext={() => setGatePassed(true)}
           onCancel={() => router.back()}
-          onRecheck={() => audioRef.current?.checkHeadphones()}
         />
       )}
 

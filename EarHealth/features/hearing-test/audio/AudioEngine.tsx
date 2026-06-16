@@ -6,16 +6,14 @@ import { WEBVIEW_AUDIO_HTML } from '../constants/hearing-test.constants';
 export type AudioChannel = 'left' | 'right' | 'both';
 
 export interface AudioEngineHandle {
-  playTone:        (frequency: number, volume: number, channel: AudioChannel) => void;
-  stopTone:        () => void;
-  setVolume:       (volume: number) => void;
-  setFrequency:    (frequency: number) => void;
-  checkHeadphones: () => void;
+  playTone:     (frequency: number, volume: number, channel: AudioChannel) => void;
+  stopTone:     () => void;
+  setVolume:    (volume: number) => void;
+  setFrequency: (frequency: number) => void;
 }
 
 interface AudioEngineProps {
-  onReady?:           () => void;
-  onHeadsetDetected?: (labels: string[]) => void;
+  onReady?: () => void;
 }
 
 function clamp01(v: number): number {
@@ -23,7 +21,7 @@ function clamp01(v: number): number {
 }
 
 export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
-  ({ onReady, onHeadsetDetected }, ref) => {
+  ({ onReady }, ref) => {
     const webViewRef = useRef<WebView>(null);
     const readyRef   = useRef(false);
 
@@ -48,11 +46,6 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
           `window.setFrequency && window.setFrequency(${f}); true;`
         );
       },
-      checkHeadphones() {
-        webViewRef.current?.injectJavaScript(
-          `window.checkHeadphones && window.checkHeadphones(); true;`
-        );
-      },
     }), []);
 
     if (Platform.OS === 'web') return null;
@@ -73,9 +66,6 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
               if (data.type === 'audio_ready' && !readyRef.current) {
                 readyRef.current = true;
                 onReady?.();
-              }
-              if (data.type === 'headset_detected') {
-                onHeadsetDetected?.(Array.isArray(data.labels) ? data.labels : []);
               }
             } catch {
               /* ignore */

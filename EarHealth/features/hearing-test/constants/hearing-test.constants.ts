@@ -219,28 +219,8 @@ export const WEBVIEW_AUDIO_HTML = `
         }
       };
 
-      window.checkHeadphones = function() {
-        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-          navigator.mediaDevices.enumerateDevices().then(function(devices) {
-            var labels = [];
-            for (var i = 0; i < devices.length; i++) {
-              var d = devices[i];
-              if ((d.kind === 'audiooutput' || d.kind === 'audioinput') && d.label && d.label.length > 0) {
-                labels.push(d.label.toLowerCase());
-              }
-            }
-            sendToRN({ type: 'headset_detected', labels: labels });
-          }).catch(function() {
-            sendToRN({ type: 'headset_detected', labels: [] });
-          });
-        } else {
-          sendToRN({ type: 'headset_detected', labels: [] });
-        }
-      };
-
       window.onload = function() {
         sendToRN({ type: 'audio_ready' });
-        window.checkHeadphones();
       };
       window.onerror = function() { sendToRN({ type: 'audio_ready' }); };
     <\/script>

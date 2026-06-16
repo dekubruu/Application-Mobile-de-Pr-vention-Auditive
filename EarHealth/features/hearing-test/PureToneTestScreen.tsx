@@ -12,7 +12,6 @@ import { PTTResultView } from './components/PTTResultView';
 import { PTTTestingView } from './components/PTTTestingView';
 import { SaveBanner } from './components/SaveBanner';
 import { usePureToneTest } from './hooks/usePureToneTest';
-import { detectFromLabels } from './services/HeadphoneDetector';
 
 export default function PureToneTestScreen() {
   const router = useRouter();
@@ -22,8 +21,6 @@ export default function PureToneTestScreen() {
   const audioRef = useRef<AudioEngineHandle | null>(null);
   const [audioReady, setAudioReady] = useState(false);
   const [gatePassed, setGatePassed] = useState(false);
-  const [headsetDetected, setHeadsetDetected] = useState(false);
-  const [headsetLabel, setHeadsetLabel]       = useState<string | null>(null);
 
   const {
     stage,
@@ -46,12 +43,6 @@ export default function PureToneTestScreen() {
     onHoldEnd,
   } = usePureToneTest({ audio: audioRef, audioReady, userId });
 
-  const handleHeadsetDetected = (labels: string[]) => {
-    const result = detectFromLabels(labels);
-    setHeadsetDetected(result.connected);
-    setHeadsetLabel(result.label);
-  };
-
   const handleExit = () => {
     if (stage === 'testing' || stage === 'between-ears') {
       Alert.alert(
@@ -72,7 +63,6 @@ export default function PureToneTestScreen() {
       <AudioEngine
         ref={audioRef}
         onReady={() => setAudioReady(true)}
-        onHeadsetDetected={handleHeadsetDetected}
       />
 
       <View style={styles.header}>
@@ -85,11 +75,8 @@ export default function PureToneTestScreen() {
 
       {!gatePassed && (
         <HeadphoneGateView
-          detected={headsetDetected}
-          label={headsetLabel}
           onNext={() => setGatePassed(true)}
           onCancel={() => router.back()}
-          onRecheck={() => audioRef.current?.checkHeadphones()}
         />
       )}
 
