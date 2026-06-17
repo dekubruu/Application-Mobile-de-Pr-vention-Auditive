@@ -15,8 +15,10 @@ export const SoundLevelDisplay: React.FC<SoundLevelDisplayProps> = ({
   category,
 }) => (
   <View style={styles.container}>
-    <Text style={[styles.level, { color: category.color }]}>{soundLevel}</Text>
-    <Text style={styles.unit}>dB</Text>
+    <View style={[styles.valueBox, { borderColor: category.color, backgroundColor: category.color + '12' }]}>
+      <Text style={[styles.level, { color: category.color }]}>{soundLevel}</Text>
+      <Text style={styles.unit}>dB</Text>
+    </View>
     <View style={[styles.badge, { backgroundColor: category.color + '18' }]}>
       <View style={[styles.dot, { backgroundColor: category.color }]} />
       <Text style={[styles.badgeLabel, { color: category.color }]}>{category.label}</Text>
@@ -29,6 +31,15 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
   },
+  valueBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 28,
+    paddingVertical: 14,
+    borderRadius: 24,
+    borderWidth: 2,
+    marginBottom: 16,
+  },
   level: {
     fontSize: 80,
     fontWeight: '800',
@@ -40,7 +51,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textSecondary,
     marginTop: -4,
-    marginBottom: 16,
   },
   badge: {
     flexDirection: 'row',
