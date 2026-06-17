@@ -302,14 +302,8 @@ export default function TestDashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>
-            {greeting}{name ? `, ${name}` : ''}
-          </Text>
           <Text style={styles.appName}>HearSafe</Text>
         </View>
-        <Pressable onPress={refresh} style={styles.headerBtn} hitSlop={8}>
-          <Ionicons name="refresh-outline" size={21} color={Colors.textSecondary} />
-        </Pressable>
       </View>
 
       <ScrollView
@@ -474,6 +468,7 @@ const styles = StyleSheet.create({
     backgroundColor:   Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
+    
   },
   greeting: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500', marginBottom: 1 },
   appName:  { fontSize: 22, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },

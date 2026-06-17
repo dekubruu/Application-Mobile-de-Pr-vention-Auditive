@@ -58,6 +58,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   headerTitle: {
+    textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
     color: Colors.text,

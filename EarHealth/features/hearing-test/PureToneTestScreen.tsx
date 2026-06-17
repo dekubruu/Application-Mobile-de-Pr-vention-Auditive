@@ -70,7 +70,7 @@ export default function PureToneTestScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Pure Tone Threshold</Text>
-        <View style={styles.backBtn} />
+
       </View>
 
       {!gatePassed && (
@@ -142,10 +142,11 @@ const IntroView: React.FC<{ audioReady: boolean; onStart: () => void }> = ({
     </Text>
 
     <View style={styles.steps}>
-      <StepRow num="1" text="Mettez des écouteurs filaires de préférence" />
+      <StepRow num="1" text="Mettez des écouteurs" />
       <StepRow num="2" text="Réglez le volume du téléphone à mi-course" />
       <StepRow num="3" text="Maintenez le bouton tant que vous entendez" />
       <StepRow num="4" text="Relâchez dès que le son disparaît" />
+      <StepRow num="5" text="Répétez le processus jusqu'à la fin du test" />
     </View>
 
     <View style={styles.tipBox}>

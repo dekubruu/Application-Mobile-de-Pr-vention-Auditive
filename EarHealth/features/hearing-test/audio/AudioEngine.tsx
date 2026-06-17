@@ -1,4 +1,5 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import { setAudioModeAsync } from 'expo-audio';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { WEBVIEW_AUDIO_HTML } from '../constants/hearing-test.constants';
@@ -47,6 +48,16 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
         );
       },
     }), []);
+
+    // iOS: sans cette session audio, les tons (joués via la WebView) sont
+    // coupés par l'interrupteur silencieux quand aucun écouteur n'est branché.
+    // playsInSilentMode → audible même en mode silencieux ; allowsRecording:false
+    // → sortie haut-parleur (et neutralise un éventuel mode "record" laissé par
+    // le sonomètre). N'affecte pas la logique du test.
+    useEffect(() => {
+      if (Platform.OS === 'web') return;
+      setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+    }, []);
 
     if (Platform.OS === 'web') return null;
 

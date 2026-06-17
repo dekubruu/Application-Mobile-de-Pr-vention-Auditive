@@ -75,7 +75,7 @@ export function useHighFrequencyTest({
       st.reversals, st.lastTransition, newTrans, st.currentFreq, now,
     );
 
-    const nextFreq = adjustFrequency(st.currentFreq, held);
+    const nextFreq = adjustFrequency(st.currentFreq, held, st.reversals.length);
 
     const nextState: HFRTRuntimeState = {
       ...st,

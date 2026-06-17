@@ -58,7 +58,6 @@ export default function QuizScreen() {
         <Ionicons name="chevron-back" size={22} color={Colors.text} />
       </Pressable>
       <Text style={styles.headerTitleCentered}>{title}</Text>
-      <View style={styles.backBtn} />
     </View>
   );
 
@@ -66,7 +65,7 @@ export default function QuizScreen() {
   if (quiz.status === 'idle') {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {headerSimple('Quiz Auditif')}
+        {headerSimple('Quiz')}
         <QuizDashboardView
           stats={stats}
           loading={statsStatus === 'loading'}
@@ -84,7 +83,7 @@ export default function QuizScreen() {
   if (quiz.status === 'loading') {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {headerWithBack('Quiz Auditif', goToDashboard)}
+        {headerWithBack('Quiz', goToDashboard)}
         <QuizLoadingView />
       </SafeAreaView>
     );
@@ -94,7 +93,7 @@ export default function QuizScreen() {
   if (quiz.status === 'error') {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {headerWithBack('Quiz Auditif', goToDashboard)}
+        {headerWithBack('Quiz', goToDashboard)}
         <QuizErrorView
           message={quiz.error ?? 'Une erreur inconnue est survenue.'}
           onRetry={quiz.retry}
@@ -145,7 +144,7 @@ export default function QuizScreen() {
   if (!quiz.currentQuestion) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {headerWithBack('Quiz Auditif', goToDashboard)}
+        {headerWithBack('Quiz', goToDashboard)}
         <QuizErrorView
           message="Aucune question à afficher."
           onRetry={quiz.retry}
@@ -159,7 +158,7 @@ export default function QuizScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {headerWithBack('Quiz Auditif', goToDashboard)}
+      {headerWithBack('Quiz', goToDashboard)}
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <QuizProgressBar current={quiz.questionIndex + 1} total={quiz.totalQuestions} />
         <QuizQuestionView
@@ -188,6 +187,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   headerTitle: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
     color: Colors.text,
