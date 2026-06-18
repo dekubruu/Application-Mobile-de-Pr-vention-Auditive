@@ -66,7 +66,7 @@ export default function LoginScreen() {
             <View style={styles.iconRing}>
               <Ionicons name="ear-outline" size={36} color={Colors.primary} />
             </View>
-            <Text style={styles.appName}>EarHealth</Text>
+            <Text style={styles.appName}>HearSafe</Text>
             <Text style={styles.tagline}>Prenez soin de votre audition</Text>
           </View>
 
