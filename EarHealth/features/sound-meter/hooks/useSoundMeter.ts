@@ -1,7 +1,17 @@
-import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from 'expo-audio';
+import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
-import { LEVEL_HISTORY_SIZE, getSoundLevelCategory } from '../constants/sound-level.constants';
+import {
+  LEVEL_HISTORY_SIZE,
+  RISK_THRESHOLD_DB,
+  getSoundLevelCategory,
+} from '../constants/sound-level.constants';
 
 export const useSoundMeter = () => {
   const [isMeasuring,    setIsMeasuring]    = useState(false);
@@ -15,11 +25,14 @@ export const useSoundMeter = () => {
   const rafRef             = useRef<number | null>(null);
   const intervalRef        = useRef<ReturnType<typeof setInterval> | null>(null);
   const levelHistoryRef    = useRef<number[]>([]);
+  const wasOverRef         = useRef(false);
 
   const isWeb = Platform.OS === 'web';
 
-  // useAudioRecorder manages lifecycle — auto-released on unmount
-  const recorder = useAudioRecorder({ isMeteringEnabled: true });
+  // useAudioRecorder manages lifecycle — auto-released on unmount.
+  // Spread HIGH_QUALITY so the full RecordingOptions type is satisfied, and
+  // enable metering (the level read each tick comes from getStatus().metering).
+  const recorder = useAudioRecorder({ ...RecordingPresets.HIGH_QUALITY, isMeteringEnabled: true });
 
   useEffect(() => {
     return () => {
@@ -41,6 +54,15 @@ export const useSoundMeter = () => {
       history.reduce((sum, v) => sum + v, 0) / Math.max(history.length, 1),
     );
     setAverageLevel(average);
+
+    // Haptic warning on UPWARD crossing of the risk threshold. Hysteresis
+    // (re-arm only after dropping a few dB below) avoids buzz spam at ~85 dB.
+    if (level >= RISK_THRESHOLD_DB && !wasOverRef.current) {
+      wasOverRef.current = true;
+      if (!isWeb) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+    } else if (level < RISK_THRESHOLD_DB - 3) {
+      wasOverRef.current = false;
+    }
   };
 
   // ── Web measurement ───────────────────────────────────────────────────────
@@ -145,6 +167,7 @@ export const useSoundMeter = () => {
 
   const startMeasurement = async () => {
     setSoundLevel(0);
+    wasOverRef.current = false;
     setIsMeasuring(true);
     setStatusMessage('Démarrage...');
     if (isWeb) await startWebMeter();
@@ -155,6 +178,7 @@ export const useSoundMeter = () => {
     setIsMeasuring(false);
     setStatusMessage('Arrêté');
     setSoundLevel(0);
+    wasOverRef.current = false;
     if (isWeb) stopWebMeter();
     else        await stopNativeMeter();
   };

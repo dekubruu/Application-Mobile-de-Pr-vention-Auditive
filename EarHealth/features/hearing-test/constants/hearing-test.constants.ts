@@ -207,41 +207,10 @@ export const WEBVIEW_AUDIO_HTML = `
       };
 
       window.setVolume = function(volume) {
-        if (_gain && _ctx) {
-          _gain.gain.setValueAtTime(Math.min(1, Math.max(0, volume)), _ctx.currentTime);
-        }
+        audioEl.volume = Math.min(1, Math.max(0, volume));
       };
 
-      window.setFrequency = function(frequency) {
-        if (_osc && _ctx) {
-          var f = Math.min(22000, Math.max(20, frequency));
-          try { _osc.frequency.setValueAtTime(f, _ctx.currentTime); } catch(e) {}
-        }
-      };
-
-      window.checkHeadphones = function() {
-        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-          navigator.mediaDevices.enumerateDevices().then(function(devices) {
-            var labels = [];
-            for (var i = 0; i < devices.length; i++) {
-              var d = devices[i];
-              if ((d.kind === 'audiooutput' || d.kind === 'audioinput') && d.label && d.label.length > 0) {
-                labels.push(d.label.toLowerCase());
-              }
-            }
-            sendToRN({ type: 'headset_detected', labels: labels });
-          }).catch(function() {
-            sendToRN({ type: 'headset_detected', labels: [] });
-          });
-        } else {
-          sendToRN({ type: 'headset_detected', labels: [] });
-        }
-      };
-
-      window.onload = function() {
-        sendToRN({ type: 'audio_ready' });
-        window.checkHeadphones();
-      };
+      window.onload = function() { sendToRN({ type: 'audio_ready' }); };
       window.onerror = function() { sendToRN({ type: 'audio_ready' }); };
     <\/script>
   </body>

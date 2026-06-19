@@ -249,6 +249,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.text,
     letterSpacing: -0.3,
+    textAlign: 'center'
   },
   content: { padding: 16, paddingBottom: 48 },
   profileCard: { alignItems: 'center', paddingVertical: 28, marginBottom: 12 },

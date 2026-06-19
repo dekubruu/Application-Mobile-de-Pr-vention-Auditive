@@ -1,4 +1,5 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import { setAudioModeAsync } from 'expo-audio';
+import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { WEBVIEW_AUDIO_HTML } from '../constants/hearing-test.constants';
@@ -6,16 +7,14 @@ import { WEBVIEW_AUDIO_HTML } from '../constants/hearing-test.constants';
 export type AudioChannel = 'left' | 'right' | 'both';
 
 export interface AudioEngineHandle {
-  playTone:        (frequency: number, volume: number, channel: AudioChannel) => void;
-  stopTone:        () => void;
-  setVolume:       (volume: number) => void;
-  setFrequency:    (frequency: number) => void;
-  checkHeadphones: () => void;
+  playTone:     (frequency: number, volume: number, channel: AudioChannel) => void;
+  stopTone:     () => void;
+  setVolume:    (volume: number) => void;
+  setFrequency: (frequency: number) => void;
 }
 
 interface AudioEngineProps {
-  onReady?:           () => void;
-  onHeadsetDetected?: (labels: string[]) => void;
+  onReady?: () => void;
 }
 
 function clamp01(v: number): number {
@@ -23,7 +22,7 @@ function clamp01(v: number): number {
 }
 
 export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
-  ({ onReady, onHeadsetDetected }, ref) => {
+  ({ onReady }, ref) => {
     const webViewRef = useRef<WebView>(null);
     const readyRef   = useRef(false);
 
@@ -48,12 +47,17 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
           `window.setFrequency && window.setFrequency(${f}); true;`
         );
       },
-      checkHeadphones() {
-        webViewRef.current?.injectJavaScript(
-          `window.checkHeadphones && window.checkHeadphones(); true;`
-        );
-      },
     }), []);
+
+    // iOS: sans cette session audio, les tons (joués via la WebView) sont
+    // coupés par l'interrupteur silencieux quand aucun écouteur n'est branché.
+    // playsInSilentMode → audible même en mode silencieux ; allowsRecording:false
+    // → sortie haut-parleur (et neutralise un éventuel mode "record" laissé par
+    // le sonomètre). N'affecte pas la logique du test.
+    useEffect(() => {
+      if (Platform.OS === 'web') return;
+      setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
+    }, []);
 
     if (Platform.OS === 'web') return null;
 
@@ -73,9 +77,6 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
               if (data.type === 'audio_ready' && !readyRef.current) {
                 readyRef.current = true;
                 onReady?.();
-              }
-              if (data.type === 'headset_detected') {
-                onHeadsetDetected?.(Array.isArray(data.labels) ? data.labels : []);
               }
             } catch {
               /* ignore */

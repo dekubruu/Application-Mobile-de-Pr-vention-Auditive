@@ -6,14 +6,18 @@ import type {
 
 // ── Tunable parameters ────────────────────────────────────────────────────────
 
-export const HFRT_START_FREQ        = 2000;
-export const HFRT_MIN_FREQ          = 1500;
+export const HFRT_START_FREQ        = 5000;
+export const HFRT_MIN_FREQ          = 250;
 export const HFRT_MAX_FREQ          = 20_000;
-export const HFRT_HOLD_FACTOR       = 1.045;  // +4.5 % per tick when held → ~log progression
-export const HFRT_RELEASE_FACTOR    = 0.97;   // -3 % per tick when released
+// Two-phase staircase (mirrors PTT): coarse "search" factors until the 1st
+// reversal, then fine "track" factors to oscillate around the audible limit.
+export const HFRT_SEARCH_HOLD_FACTOR    = 1.1;  // +6 % per tick when held (coarse climb)
+export const HFRT_SEARCH_RELEASE_FACTOR = 0.97;  // -3 % per tick when released (coarse drop)
+export const HFRT_TRACK_HOLD_FACTOR     = 1.02;  // +2 % per tick when held (fine climb)
+export const HFRT_TRACK_RELEASE_FACTOR  = 0.98;  // -2 % per tick when released (fine drop)
 export const HFRT_TICK_MS           = 280;    // tick (smooth ramp)
 export const HFRT_TONE_GUARD_MS     = 250;
-export const HFRT_REVERSALS_TARGET  = 3;      // converge after N reversals
+export const HFRT_REVERSALS_TARGET  = 5;      // converge after N reversals
 export const HFRT_MAX_DURATION_MS   = 60_000; // safety timeout
 export const HFRT_VOLUME            = 0.18;   // fixed comfortable volume
 
@@ -28,12 +32,30 @@ export function makeInitialRuntimeState(): HFRTRuntimeState {
   };
 }
 
+// ── Per-tick factor selection ─────────────────────────────────────────────────
+// Phase 1 (no reversal yet) : coarse asymmetric factors for fast convergence.
+// Phase 2 (≥ 1 reversal)    : fine factors to oscillate around the threshold.
+export function getFactorsForPhase(reversalCount: number): {
+  hold: number;
+  release: number;
+} {
+  if (reversalCount === 0) {
+    return { hold: HFRT_SEARCH_HOLD_FACTOR, release: HFRT_SEARCH_RELEASE_FACTOR };
+  }
+  return { hold: HFRT_TRACK_HOLD_FACTOR, release: HFRT_TRACK_RELEASE_FACTOR };
+}
+
 // ── Per-tick frequency adjustment ─────────────────────────────────────────────
 // Multiplicative (logarithmic) ramp — perceptually smoother than additive Hz.
-export function adjustFrequency(currentFreq: number, isHeld: boolean): number {
+export function adjustFrequency(
+  currentFreq: number,
+  isHeld: boolean,
+  reversalCount: number,
+): number {
+  const factors = getFactorsForPhase(reversalCount);
   const next = isHeld
-    ? currentFreq * HFRT_HOLD_FACTOR
-    : currentFreq * HFRT_RELEASE_FACTOR;
+    ? currentFreq * factors.hold
+    : currentFreq * factors.release;
   return Math.min(HFRT_MAX_FREQ, Math.max(HFRT_MIN_FREQ, next));
 }
 

@@ -4,92 +4,50 @@ import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { Colors } from '@/constants/colors';
 
 interface HeadphoneGateViewProps {
-  detected:   boolean;
-  label?:     string | null;
-  onNext:     () => void;
-  onCancel:   () => void;
-  onRecheck:  () => void;
+  onNext:   () => void;
+  onCancel: () => void;
 }
 
 export const HeadphoneGateView: React.FC<HeadphoneGateViewProps> = ({
-  detected,
-  label,
   onNext,
   onCancel,
-  onRecheck,
 }) => {
-  const [manuallyConfirmed, setManuallyConfirmed] = useState(false);
-  const canProceed = detected || manuallyConfirmed;
+  const [confirmed, setConfirmed] = useState(false);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={[
-        styles.iconRing,
-        detected ? styles.iconRingOk : styles.iconRingWarn,
-      ]}>
-        <Ionicons
-          name={detected ? 'headset' : 'headset-outline'}
-          size={42}
-          color={detected ? Colors.success : Colors.warning}
-        />
+      <View style={[styles.iconRing, styles.iconRingWarn]}>
+        <Ionicons name="headset-outline" size={42} color={Colors.warning} />
       </View>
 
-      <Text style={styles.title}>
-        {detected ? 'Écouteurs détectés' : 'Connectez vos écouteurs'}
-      </Text>
+      <Text style={styles.title}>Connectez vos écouteurs</Text>
 
       <Text style={styles.subtitle}>
-        {detected
-          ? 'Vous pouvez démarrer le test.'
-          : 'Pour la fiabilité du test, branchez vos écouteurs (filaires ou Bluetooth).'}
+        Pour la fiabilité du test, branchez vos écouteurs (filaires ou Bluetooth).
       </Text>
 
-      {detected && label && (
-        <View style={styles.labelBadge}>
-          <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-          <Text style={styles.labelBadgeText} numberOfLines={1}>{label}</Text>
+      {/* Manual confirmation */}
+      <Pressable
+        onPress={() => setConfirmed(v => !v)}
+        style={({ pressed }) => [
+          styles.manualBox,
+          confirmed && styles.manualBoxActive,
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={[
+          styles.checkbox,
+          confirmed && styles.checkboxChecked,
+        ]}>
+          {confirmed && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
         </View>
-      )}
-
-      {!detected && (
-        <>
-          <View style={styles.tipBox}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.primaryDark} />
-            <Text style={styles.tipText}>
-              La détection automatique du <Text style={styles.bold}>Bluetooth</Text> n’est pas toujours
-              fiable. Si vos écouteurs sans fil sont connectés, confirmez ci-dessous.
-            </Text>
-          </View>
-
-          <Pressable onPress={onRecheck} style={styles.recheckBtn} hitSlop={6}>
-            <Ionicons name="refresh" size={16} color={Colors.primary} />
-            <Text style={styles.recheckText}>Re-tester la détection</Text>
-          </Pressable>
-
-          {/* Manual confirmation */}
-          <Pressable
-            onPress={() => setManuallyConfirmed(v => !v)}
-            style={({ pressed }) => [
-              styles.manualBox,
-              manuallyConfirmed && styles.manualBoxActive,
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={[
-              styles.checkbox,
-              manuallyConfirmed && styles.checkboxChecked,
-            ]}>
-              {manuallyConfirmed && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
-            </View>
-            <Text style={[
-              styles.manualText,
-              manuallyConfirmed && styles.manualTextActive,
-            ]}>
-              Je confirme avoir des écouteurs connectés
-            </Text>
-          </Pressable>
-        </>
-      )}
+        <Text style={[
+          styles.manualText,
+          confirmed && styles.manualTextActive,
+        ]}>
+          Je confirme avoir des écouteurs connectés
+        </Text>
+      </Pressable>
 
       <View style={styles.actions}>
         <Pressable
@@ -101,23 +59,23 @@ export const HeadphoneGateView: React.FC<HeadphoneGateViewProps> = ({
 
         <Pressable
           onPress={onNext}
-          disabled={!canProceed}
+          disabled={!confirmed}
           style={({ pressed }) => [
             styles.nextBtn,
-            canProceed ? styles.nextBtnEnabled : styles.nextBtnDisabled,
-            pressed && canProceed && styles.pressed,
+            confirmed ? styles.nextBtnEnabled : styles.nextBtnDisabled,
+            pressed && confirmed && styles.pressed,
           ]}
         >
           <Text style={[
             styles.nextText,
-            canProceed ? styles.nextTextEnabled : styles.nextTextDisabled,
+            confirmed ? styles.nextTextEnabled : styles.nextTextDisabled,
           ]}>
             Suivant
           </Text>
           <Ionicons
             name="arrow-forward"
             size={18}
-            color={canProceed ? '#FFFFFF' : Colors.textTertiary}
+            color={confirmed ? '#FFFFFF' : Colors.textTertiary}
           />
         </Pressable>
       </View>
@@ -135,7 +93,6 @@ const styles = StyleSheet.create({
     marginTop: 18, marginBottom: 14,
     borderWidth: 2,
   },
-  iconRingOk:   { backgroundColor: Colors.successLight, borderColor: Colors.success },
   iconRingWarn: { backgroundColor: Colors.warningLight, borderColor: Colors.warning },
 
   title: {
@@ -149,52 +106,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
 
-  labelBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: Colors.successLight,
-    borderRadius: 14,
-    maxWidth: '90%',
-  },
-  labelBadgeText: { fontSize: 12, fontWeight: '700', color: Colors.success, flexShrink: 1 },
-
-  tipBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    padding: 12,
-    backgroundColor: Colors.primaryLight,
-    borderRadius: 12,
-    marginTop: 18,
-    width: '100%',
-  },
-  tipText: { flex: 1, fontSize: 12, color: Colors.primaryDark, lineHeight: 18, fontWeight: '500' },
-  bold:    { fontWeight: '800' },
-
-  recheckBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    marginTop: 12,
-  },
-  recheckText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
-
   manualBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     width: '100%',
     padding: 14,
-    marginTop: 14,
+    marginTop: 18,
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: Colors.border,

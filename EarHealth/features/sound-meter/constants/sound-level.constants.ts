@@ -61,3 +61,8 @@ export function getSoundLevelCategory(level: number): SoundLevelCategory {
 }
 
 export const LEVEL_HISTORY_SIZE = 10;
+
+// NIOSH/WHO risk threshold: sustained exposure at or above 85 dB(A) can damage
+// hearing over time. Surfaced explicitly in the guide and used to trigger the
+// over-threshold alert (visual + haptic).
+export const RISK_THRESHOLD_DB = 85;
