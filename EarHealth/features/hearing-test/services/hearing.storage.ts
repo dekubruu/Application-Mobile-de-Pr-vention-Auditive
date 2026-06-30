@@ -36,6 +36,20 @@ export interface PTTPayload {
 export interface HFRTPayload {
   maxFrequencyHz: number;
   interpretation: string;
+  // Enriched fields (all optional → backward-compatible with rows queued by
+  // older builds, and the isHFRTPayload guard only requires the two above).
+  reliable?:         boolean;
+  reversals?:        number;
+  durationMs?:       number;
+  hitCeiling?:       boolean;
+  noResponse?:       boolean;
+  ageAtTest?:        number;
+  expectedForAgeHz?: number;
+  // `interpretation` always holds the ABSOLUTE quality label (stable vocabulary).
+  // The age-relative phrase, when computable, is stored separately so the column
+  // semantics never depend on whether a birth date was present at save time.
+  relativeToAge?:    string;
+  relative?:         'above' | 'typical' | 'below';
 }
 
 export type HearingPayload = PTTPayload | HFRTPayload;

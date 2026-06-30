@@ -15,8 +15,9 @@ import { useHighFrequencyTest } from './hooks/useHighFrequencyTest';
 
 export default function HighFrequencyTestScreen() {
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const userId = session?.user.id ?? null;
+  const dateOfBirth = profile?.date_of_birth ?? null;
 
   const audioRef = useRef<AudioEngineHandle | null>(null);
   const [audioReady, setAudioReady] = useState(false);
@@ -26,6 +27,7 @@ export default function HighFrequencyTestScreen() {
     stage,
     currentFreq,
     isHeld,
+    inactiveWarn,
     result,
     saveStatus,
     start,
@@ -33,7 +35,7 @@ export default function HighFrequencyTestScreen() {
     reset,
     onHoldStart,
     onHoldEnd,
-  } = useHighFrequencyTest({ audio: audioRef, audioReady, userId });
+  } = useHighFrequencyTest({ audio: audioRef, audioReady, userId, dateOfBirth });
 
   const handleExit = () => {
     if (stage === 'testing') {
@@ -80,6 +82,7 @@ export default function HighFrequencyTestScreen() {
           <HFRTTestingView
             currentFreq={currentFreq}
             isHeld={isHeld}
+            inactiveWarn={inactiveWarn}
             onHoldStart={onHoldStart}
             onHoldEnd={onHoldEnd}
           />
@@ -89,7 +92,7 @@ export default function HighFrequencyTestScreen() {
       {gatePassed && stage === 'result' && result && (
         <>
           <SaveBanner status={saveStatus} />
-          <HFRTResultView result={result} />
+          <HFRTResultView result={result} dateOfBirth={dateOfBirth} />
           <View style={styles.footer}>
             <Pressable onPress={reset} style={styles.footerBtnSecondary}>
               <Ionicons name="refresh" size={17} color={Colors.primary} />

@@ -387,7 +387,7 @@ export default function TestDashboardScreen() {
               const subtitle = isPTT
                 ? (item.ptaDb != null ? `Tonal · PTA ${toDisplayDb(item.ptaDb)} dB` : 'Tonal')
                 : (item.maxFrequencyHz != null
-                    ? `Haute fréquence · ${(item.maxFrequencyHz / 1000).toFixed(1)} kHz`
+                    ? `Haute fréquence · ${item.hitCeiling ? '≥ 20' : (item.maxFrequencyHz / 1000).toFixed(1)} kHz`
                     : 'Haute fréquence');
               return (
                 <View key={item.id} style={styles.historyItem}>

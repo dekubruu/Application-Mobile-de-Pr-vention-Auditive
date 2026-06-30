@@ -3,16 +3,21 @@ import type { AudioEngineHandle } from '../audio/AudioEngine';
 import { saveHearingResultResilient } from '../services/HearingResultService';
 import {
   HFRT_MAX_FREQ,
+  HFRT_NO_RESPONSE_MS,
+  HFRT_PROMPT_AFTER_MS,
+  HFRT_RELEASE_CONFIRM_MS,
   HFRT_START_FREQ,
+  HFRT_SWEEP_DURATION_MS,
   HFRT_TICK_MS,
-  HFRT_TONE_GUARD_MS,
   HFRT_VOLUME,
-  adjustFrequency,
-  buildResult,
-  hasConverged,
+  buildNoResponseResult,
+  buildSweepResult,
+  computeAge,
+  freqAtElapsed,
+  hfrtScoreForAge,
+  interpretForAge,
   interpretMaxFrequency,
   makeInitialRuntimeState,
-  recordTransition,
 } from '../services/HFRTAlgorithm';
 import type { HearingSaveStatus, HFRTPayload } from '../services/hearing.storage';
 import type { HFRTResult, HFRTRuntimeState, HFRTStage } from '../types/hfrt.types';
@@ -24,31 +29,25 @@ interface UseHighFrequencyTestArgs {
   userId?:    string | null;
   /** Optional callback fired after a save attempt (synced OR queued). */
   onSaved?:   () => void;
-}
-
-// HFRT score: linear ratio of max audible frequency over the upper bound.
-// 20 kHz → 100, 16 kHz → 80, 12 kHz → 60. Conscious limitation: linear is a
-// rough proxy and over-penalizes adult ears; revisit with an age-aware curve
-// if more nuance is needed later.
-function hfrtScore(maxFrequencyHz: number): number {
-  return Math.round(
-    Math.min(100, Math.max(0, (maxFrequencyHz / HFRT_MAX_FREQ) * 100)),
-  );
+  /** Profile birth date (ISO). Enables the age-relative interpretation/score. */
+  dateOfBirth?: string | null;
 }
 
 export function useHighFrequencyTest({
-  audio, audioReady, userId, onSaved,
+  audio, audioReady, userId, onSaved, dateOfBirth,
 }: UseHighFrequencyTestArgs) {
   const [stage, setStage]               = useState<HFRTStage>('intro');
   const [currentFreq, setCurrentFreq]   = useState(HFRT_START_FREQ);
   const [isHeld, setIsHeld]             = useState(false);
+  // "Hold while you hear it" hint shown if the user hasn't pressed yet.
+  const [inactiveWarn, setInactiveWarn] = useState(false);
   const [result, setResult]             = useState<HFRTResult | null>(null);
   const [saveStatus, setSaveStatus]     = useState<HearingSaveStatus>('idle');
 
-  const stateRef     = useRef<HFRTRuntimeState>(makeInitialRuntimeState());
-  const heldRef      = useRef(false);
-  const tickRef      = useRef<ReturnType<typeof setInterval> | null>(null);
-  const toneStartRef = useRef(0);
+  const stateRef = useRef<HFRTRuntimeState>(makeInitialRuntimeState());
+  const heldRef  = useRef(false);
+  const tickRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastLogRef = useRef(0); // DEBUG: last frequency logged to the terminal
 
   // ── Save refs (mirror of useQuiz pattern) ──
   const savedRef   = useRef(false);
@@ -63,51 +62,95 @@ export function useHighFrequencyTest({
     audio.current?.stopTone();
   }, [audio]);
 
-  const tick = useCallback(() => {
-    const st  = stateRef.current;
-    const now = Date.now();
-    if (now - toneStartRef.current < HFRT_TONE_GUARD_MS) return;
+  const finish = useCallback((res: HFRTResult) => {
+    stopTicking();
+    setResult(res);
+    setInactiveWarn(false);
+    setStage('result');
+  }, [stopTicking]);
 
+  // ── One sweep tick ──
+  // The frequency is a pure function of wall-clock time since the test started,
+  // so it ALWAYS glides 8 → 20 kHz on its own — independent of the hold button
+  // and of audio readiness. The button only marks where the tone became
+  // inaudible (the user's max audible frequency).
+  const tick = useCallback(() => {
+    const st = stateRef.current;
+    if (st.startedAt === 0) return;
+
+    const now  = Date.now();
     const held = heldRef.current;
 
-    const newTrans: 'hold' | 'release' = held ? 'hold' : 'release';
-    const { reversals } = recordTransition(
-      st.reversals, st.lastTransition, newTrans, st.currentFreq, now,
-    );
+    const elapsed  = now - st.startedAt;
+    const freq     = freqAtElapsed(elapsed);
+    const everHeld = st.everHeld || held;
+    const maxWhileHeld     = held ? Math.max(st.maxFreqWhileHeld, freq) : st.maxFreqWhileHeld;
+    const releaseStartedAt = held ? 0 : (everHeld ? (st.releaseStartedAt || now) : 0);
 
-    const nextFreq = adjustFrequency(st.currentFreq, held, st.reversals.length);
-
-    const nextState: HFRTRuntimeState = {
+    stateRef.current = {
       ...st,
-      currentFreq:    nextFreq,
-      reversals,
-      lastTransition: newTrans,
+      currentFreq:      freq,
+      everHeld,
+      maxFreqWhileHeld: maxWhileHeld,
+      releaseStartedAt,
+      sweepStartedAt:   st.sweepStartedAt || (everHeld ? now : 0),
     };
-    stateRef.current = nextState;
-    setCurrentFreq(Math.round(nextFreq));
-    audio.current?.setFrequency(nextFreq);
+    const rounded = Math.round(freq);
+    setCurrentFreq(rounded);
+    audio.current?.setFrequency(freq);
+    setInactiveWarn(!everHeld && elapsed > HFRT_PROMPT_AFTER_MS);
 
-    if (hasConverged(nextState, now)) {
-      stopTicking();
-      const final = buildResult(nextState, now);
-      setResult(final);
-      setStage('result');
+    // DEBUG: log the frequency currently played, throttled to ~every 100 Hz step
+    // so the Metro/Expo terminal isn't flooded (the tick runs every 50 ms).
+    if (Math.abs(rounded - lastLogRef.current) >= 100) {
+      lastLogRef.current = rounded;
+      ///console.log(`[HFRT] Fréquence jouée : ${rounded} Hz${held ? ' (entendu)' : ''}`);
     }
-  }, [audio, stopTicking]);
 
-  const startTone = useCallback(() => {
-    if (!audioReady) return;
-    toneStartRef.current = Date.now();
-    stateRef.current = { ...stateRef.current, startedAt: toneStartRef.current };
-    audio.current?.playTone(stateRef.current.currentFreq, HFRT_VOLUME, 'both');
+    // End — the sweep reached the top of the range.
+    if (elapsed >= HFRT_SWEEP_DURATION_MS || freq >= HFRT_MAX_FREQ - 1) {
+      finish(everHeld ? buildSweepResult(maxWhileHeld, /* hitCeiling */ held, elapsed)
+                      : buildNoResponseResult());
+      return;
+    }
+    // End — never perceived even the 8 kHz start tone within the grace.
+    if (!everHeld && elapsed > HFRT_NO_RESPONSE_MS) {
+      finish(buildNoResponseResult());
+      return;
+    }
+    // End — sustained release after hearing → this is the audible limit.
+    if (everHeld && !held && releaseStartedAt > 0 && now - releaseStartedAt >= HFRT_RELEASE_CONFIRM_MS) {
+      finish(buildSweepResult(maxWhileHeld, /* hitCeiling */ false, elapsed));
+    }
+  }, [audio, finish]);
+
+  // ── Start the visual sweep the moment we enter the testing stage ──
+  // Deliberately NOT gated on audioReady so the frequency always moves; the tone
+  // (started below) simply tracks it once the audio bridge is up.
+  useEffect(() => {
+    if (stage !== 'testing') return;
+    stateRef.current = { ...makeInitialRuntimeState(), startedAt: Date.now() };
+    setCurrentFreq(HFRT_START_FREQ);
     if (tickRef.current) clearInterval(tickRef.current);
     tickRef.current = setInterval(tick, HFRT_TICK_MS);
-  }, [audio, audioReady, tick]);
+    return stopTicking;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
+  // ── Start the tone once the audio bridge is ready; it tracks the sweep. ──
+  useEffect(() => {
+    if (stage !== 'testing') return;
+    if (!audioReady) return;
+    const f = Math.round(stateRef.current.currentFreq) || HFRT_START_FREQ;
+    audio.current?.playTone(f, HFRT_VOLUME, 'both');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, audioReady]);
 
   const start = useCallback(() => {
     stateRef.current = makeInitialRuntimeState();
     setCurrentFreq(HFRT_START_FREQ);
     setResult(null);
+    setInactiveWarn(false);
     setStage('testing');
     savedRef.current = false;
     setSaveStatus('idle');
@@ -121,53 +164,51 @@ export function useHighFrequencyTest({
     setCurrentFreq(HFRT_START_FREQ);
     setIsHeld(false);
     heldRef.current = false;
+    setInactiveWarn(false);
     savedRef.current = false;
     setSaveStatus('idle');
   }, [stopTicking]);
 
   const reset = cancel;
 
-  const onHoldStart = useCallback(() => {
-    heldRef.current = true;
-    setIsHeld(true);
-  }, []);
-
-  const onHoldEnd = useCallback(() => {
-    heldRef.current = false;
-    setIsHeld(false);
-  }, []);
-
-  useEffect(() => {
-    if (stage !== 'testing') return;
-    if (!audioReady) return;
-    startTone();
-    return stopTicking;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, audioReady]);
+  const onHoldStart = useCallback(() => { heldRef.current = true;  setIsHeld(true); }, []);
+  const onHoldEnd   = useCallback(() => { heldRef.current = false; setIsHeld(false); }, []);
 
   useEffect(() => {
     return () => { stopTicking(); };
   }, [stopTicking]);
 
-  // ── Auto-save when result is available ──
-  // Mirrors the useQuiz / usePureToneTest pattern: durability first via
-  // AsyncStorage queue, then idempotent upsert. The same id is reused on any
-  // retry; ON CONFLICT DO NOTHING makes replays a server-side no-op.
+  // ── Auto-save when a valid result is available ──
+  // Durability first via the AsyncStorage queue, then idempotent upsert. A
+  // "no response" outcome is NOT persisted (setup problem, not a measurement).
   useEffect(() => {
     if (stage !== 'result') return;
     if (!result)            return;
     if (savedRef.current)   return;
     if (!userId)            return;
+    if (result.noResponse)  return;
 
     savedRef.current = true;
     setSaveStatus('saving');
 
-    const maxHz = result.maxAudibleFrequency;
+    const age    = computeAge(dateOfBirth);
+    const maxHz  = result.maxAudibleFrequency;
+    const interp = interpretForAge(maxHz, age);
+
     const payload: HFRTPayload = {
-      maxFrequencyHz: maxHz,
-      interpretation: interpretMaxFrequency(maxHz).label,
+      maxFrequencyHz:   maxHz,
+      // Stable ABSOLUTE label, independent of age → single stored vocabulary.
+      interpretation:   interpretMaxFrequency(maxHz).label,
+      reliable:         result.reliable,
+      durationMs:       result.durationMs,
+      hitCeiling:       result.hitCeiling,
+      noResponse:       result.noResponse,
+      ageAtTest:        age ?? undefined,
+      expectedForAgeHz: interp.expectedHz ?? undefined,
+      relativeToAge:    interp.relative ? interp.label : undefined,
+      relative:         interp.relative ?? undefined,
     };
-    const overallScore = hfrtScore(maxHz);
+    const overallScore = hfrtScoreForAge(maxHz, age);
 
     saveHearingResultResilient(userId, 'hfrt', payload, overallScore)
       .then(outcome => {
@@ -178,12 +219,13 @@ export function useHighFrequencyTest({
         savedRef.current = false;
         setSaveStatus('error');
       });
-  }, [stage, result, userId]);
+  }, [stage, result, userId, dateOfBirth]);
 
   return {
     stage,
     currentFreq,
     isHeld,
+    inactiveWarn,
     result,
     saveStatus,
     start,

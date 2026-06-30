@@ -19,6 +19,7 @@ export interface TestHistoryItem {
   // HFRT-specific
   maxFrequencyHz?: number;
   interpretation?: string;
+  hitCeiling?:     boolean;
 }
 
 export interface DashboardData {
@@ -53,9 +54,10 @@ function rowToHistoryItem(row: StoredHearingTestRow): TestHistoryItem {
   } as const;
 
   if (row.test_type === 'ptt') {
-    const payload = row.payload as PTTPayload;
-    const left  = payload.ears.find(e => e.ear === 'left');
-    const right = payload.ears.find(e => e.ear === 'right');
+    // Defensive: tolerate a malformed/legacy row instead of throwing inside .map().
+    const ears  = (row.payload as PTTPayload | undefined)?.ears ?? [];
+    const left  = ears.find(e => e.ear === 'left');
+    const right = ears.find(e => e.ear === 'right');
     const ptaDb = left && right
       ? Math.round((left.avgDb + right.avgDb) / 2)
       : left?.avgDb ?? right?.avgDb ?? 0;
@@ -63,11 +65,12 @@ function rowToHistoryItem(row: StoredHearingTestRow): TestHistoryItem {
   }
 
   // hfrt
-  const payload = row.payload as HFRTPayload;
+  const payload = row.payload as HFRTPayload | undefined;
   return {
     ...base,
-    maxFrequencyHz: payload.maxFrequencyHz,
-    interpretation: payload.interpretation,
+    maxFrequencyHz: payload?.maxFrequencyHz,
+    interpretation: payload?.interpretation,
+    hitCeiling:     payload?.hitCeiling,
   };
 }
 
@@ -80,10 +83,14 @@ export function useTestDashboard(): DashboardData {
   const load = useCallback(async () => {
     if (!session?.user?.id) { setLoading(false); return; }
     setLoading(true);
-    const rows = await getHearingTestHistory(session.user.id, 10);
-    setTestCount(rows.length);
-    setHistory(rows.map(rowToHistoryItem));
-    setLoading(false);
+    try {
+      const rows = await getHearingTestHistory(session.user.id, 10);
+      setTestCount(rows.length);
+      setHistory(rows.map(rowToHistoryItem));
+    } finally {
+      // Always clear loading, even if a corrupt/legacy row throws during mapping.
+      setLoading(false);
+    }
   }, [session?.user?.id]);
 
   useEffect(() => { load(); }, [load]);

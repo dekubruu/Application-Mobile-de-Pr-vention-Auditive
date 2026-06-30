@@ -207,7 +207,26 @@ export const WEBVIEW_AUDIO_HTML = `
       };
 
       window.setVolume = function(volume) {
-        audioEl.volume = Math.min(1, Math.max(0, volume));
+        if (_gain && _ctx) {
+          _gain.gain.setValueAtTime(Math.min(1, Math.max(0, volume)), _ctx.currentTime);
+        }
+      };
+
+      // Glides the CURRENT tone to a new frequency (drives the HF sweep).
+      // RESTORED: without this, audio.setFrequency() was a silent no-op and the
+      // tone stayed stuck on the playTone() start frequency.
+      var _lastSentHz = 0;
+      window.setFrequency = function(frequency) {
+        if (_osc && _ctx) {
+          var f = Math.min(22000, Math.max(20, frequency));
+          try { _osc.frequency.setValueAtTime(f, _ctx.currentTime); } catch(e) {}
+          // Report the played frequency to the RN terminal, throttled to ~100 Hz.
+          var hz = Math.round(f);
+          if (Math.abs(hz - _lastSentHz) >= 100) {
+            _lastSentHz = hz;
+            sendToRN({ type: 'freq_played', hz: hz });
+          }
+        }
       };
 
       window.onload = function() { sendToRN({ type: 'audio_ready' }); };

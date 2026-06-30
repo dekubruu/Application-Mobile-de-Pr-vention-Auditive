@@ -2,17 +2,45 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import { interpretMaxFrequency } from '../services/HFRTAlgorithm';
+import { computeAge, interpretForAge } from '../services/HFRTAlgorithm';
 import type { HFRTResult } from '../types/hfrt.types';
+import { HFRTSpectrumChart } from './HFRTSpectrumChart';
 
 interface HFRTResultViewProps {
   result: HFRTResult;
+  dateOfBirth?: string | null;
 }
 
-export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result }) => {
-  const { maxAudibleFrequency, reliable, durationMs, reversals } = result;
-  const { label, hint } = interpretMaxFrequency(maxAudibleFrequency);
-  const kHz   = (maxAudibleFrequency / 1000).toFixed(maxAudibleFrequency >= 10_000 ? 1 : 2);
+export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBirth }) => {
+  const { maxAudibleFrequency, reliable, durationMs, hitCeiling, noResponse } = result;
+
+  // ── No-response branch: setup problem, not a measurement (not persisted) ──
+  if (noResponse) {
+    return (
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={[styles.iconRing, { backgroundColor: Colors.warningLight }]}>
+          <Ionicons name="alert-circle-outline" size={40} color={Colors.warning} />
+        </View>
+        <Text style={styles.title}>Aucune réponse détectée</Text>
+        <Text style={styles.hint}>
+          Aucune perception n’a été enregistrée, même à 8 kHz. Ce résultat n’a pas été
+          sauvegardé. Vérifiez que le casque est bien branché, que le volume est à mi-course,
+          puis refaites le test.
+        </Text>
+        <View style={styles.disclaimer}>
+          <Ionicons name="information-circle-outline" size={13} color={Colors.textTertiary} />
+          <Text style={styles.disclaimerText}>
+            La perception des hautes fréquences dépend fortement du matériel (écouteurs,
+            haut-parleurs) et de l’environnement.
+          </Text>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  const age    = computeAge(dateOfBirth);
+  const interp = interpretForAge(maxAudibleFrequency, age);
+  const kHz    = (maxAudibleFrequency / 1000).toFixed(maxAudibleFrequency >= 10_000 ? 1 : 2);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -23,28 +51,55 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result }) => {
       <Text style={styles.title}>Limite haute détectée</Text>
 
       <View style={styles.bigValueWrap}>
-        <Text style={styles.bigValue}>{kHz}</Text>
+        {hitCeiling && <Text style={styles.bigPrefix}>≥</Text>}
+        <Text style={styles.bigValue}>{hitCeiling ? '20' : kHz}</Text>
         <Text style={styles.bigUnit}>kHz</Text>
       </View>
 
+      {hitCeiling && (
+        <Text style={styles.ceilingNote}>
+          Limite du test atteinte — votre audition aiguë dépasse peut-être 20 kHz.
+        </Text>
+      )}
+
       <View style={styles.labelBadge}>
-        <Text style={styles.labelBadgeText}>{label.toUpperCase()}</Text>
+        <Text style={styles.labelBadgeText}>{interp.label.toUpperCase()}</Text>
       </View>
 
-      <Text style={styles.hint}>{hint}</Text>
+      <Text style={styles.hint}>{interp.hint}</Text>
+
+      {/* Frequency scale + age zones */}
+      <View style={styles.chartSection}>
+        <Text style={styles.chartTitle}>Votre limite sur l’échelle 8–20 kHz</Text>
+        <HFRTSpectrumChart
+          maxHz={maxAudibleFrequency}
+          hitCeiling={hitCeiling}
+          expectedHz={interp.expectedHz}
+        />
+      </View>
 
       <View style={styles.metaCard}>
-        <MetaRow label="Fréquence maximale" value={`${maxAudibleFrequency.toLocaleString()} Hz`} />
-        <MetaRow label="Inversions détectées" value={String(reversals.length)} />
-        <MetaRow label="Durée" value={`${Math.round(durationMs / 1000)}s`} />
-        <MetaRow label="Fiabilité" value={reliable ? 'Bonne' : 'À refaire'} valueColor={reliable ? Colors.success : Colors.warning} />
+        <MetaRow
+          label="Fréquence maximale"
+          value={hitCeiling ? '≥ 20 000 Hz (limite du test)' : `${maxAudibleFrequency.toLocaleString()} Hz`}
+        />
+        {interp.expectedHz != null && (
+          <MetaRow label="Moyenne de votre âge" value={`~${interp.expectedHz.toLocaleString()} Hz`} />
+        )}
+        <MetaRow label="Durée du balayage" value={`${Math.round(durationMs / 1000)}s`} />
+        <MetaRow
+          label="Fiabilité"
+          value={reliable ? 'Bonne' : 'À refaire'}
+          valueColor={reliable ? Colors.success : Colors.warning}
+        />
       </View>
 
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle-outline" size={13} color={Colors.textTertiary} />
         <Text style={styles.disclaimerText}>
-          Indication non médicale. La perception des hautes fréquences dépend du matériel
-          (écouteurs, haut-parleurs) et de l’environnement.
+          Indication non médicale, sur matériel non calibré. La perception des hautes
+          fréquences dépend des écouteurs et de l’environnement ; la comparaison à l’âge est
+          une moyenne indicative.
         </Text>
       </View>
     </ScrollView>
@@ -80,8 +135,14 @@ const styles = StyleSheet.create({
   bigValueWrap: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
+    gap: 4,
     marginTop: 6,
+  },
+  bigPrefix: {
+    fontSize: 38,
+    fontWeight: '800',
+    color: Colors.text,
+    letterSpacing: -1,
   },
   bigValue: {
     fontSize: 76,
@@ -95,8 +156,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.primary,
   },
-  labelBadge: {
+  ceilingNote: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    textAlign: 'center',
     marginTop: 6,
+    paddingHorizontal: 18,
+    lineHeight: 17,
+    fontWeight: '500',
+  },
+  labelBadge: {
+    marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 14,
@@ -117,12 +187,24 @@ const styles = StyleSheet.create({
     lineHeight: 19,
   },
 
+  chartSection: {
+    width: '100%',
+    marginTop: 22,
+    gap: 8,
+  },
+  chartTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Colors.text,
+    marginLeft: 2,
+  },
+
   metaCard: {
     width: '100%',
     backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 14,
-    marginTop: 22,
+    marginTop: 18,
     borderWidth: 1,
     borderColor: Colors.border,
     gap: 2,

@@ -78,6 +78,9 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
                 readyRef.current = true;
                 onReady?.();
               }
+              if (data.type === 'freq_played') {
+                console.log('[HFRT] Fréquence jouée :', data.hz, 'Hz');
+              }
             } catch {
               /* ignore */
             }

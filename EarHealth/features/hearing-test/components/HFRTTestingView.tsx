@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
@@ -8,10 +9,11 @@ import {
 import { HoldButton } from './HoldButton';
 
 interface HFRTTestingViewProps {
-  currentFreq: number;
-  isHeld:      boolean;
-  onHoldStart: () => void;
-  onHoldEnd:   () => void;
+  currentFreq:  number;
+  isHeld:       boolean;
+  inactiveWarn?: boolean;
+  onHoldStart:  () => void;
+  onHoldEnd:    () => void;
 }
 
 function freqProgress(freq: number): number {
@@ -33,6 +35,7 @@ function formatHz(freq: number): { value: string; unit: string } {
 export const HFRTTestingView: React.FC<HFRTTestingViewProps> = ({
   currentFreq,
   isHeld,
+  inactiveWarn,
   onHoldStart,
   onHoldEnd,
 }) => {
@@ -58,6 +61,16 @@ export const HFRTTestingView: React.FC<HFRTTestingViewProps> = ({
           <Text style={styles.gaugeLabel}>{HFRT_MAX_FREQ / 1000} kHz</Text>
         </View>
       </View>
+
+      {/* Inactivity warning */}
+      {inactiveWarn && (
+        <View style={styles.warnBox}>
+          <Ionicons name="warning-outline" size={16} color={Colors.warning} />
+          <Text style={styles.warnText}>
+            Le son monte de 8 vers 20 kHz. Maintenez « J’entends » tant que vous le percevez, relâchez dès qu’il disparaît.
+          </Text>
+        </View>
+      )}
 
       {/* Hold button */}
       <HoldButton
@@ -130,6 +143,24 @@ const styles = StyleSheet.create({
   gaugeLabel: {
     fontSize: 11,
     color: Colors.textTertiary,
+    fontWeight: '600',
+  },
+
+  warnBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 12,
+    backgroundColor: Colors.warningLight,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+  },
+  warnText: {
+    flex: 1,
+    fontSize: 12,
+    color: Colors.warning,
+    lineHeight: 17,
     fontWeight: '600',
   },
 });
