@@ -6,20 +6,27 @@ export interface HFRTResult {
   durationMs: number;
   /** Held to the 20 kHz ceiling — the true limit may be higher. */
   hitCeiling: boolean;
-  /** Never perceived even the 8 kHz start tone — invalid (likely a setup issue). */
+  /** Never perceived the 8 kHz tone — invalid (likely a setup issue). */
   noResponse: boolean;
+  /** Number of hold↔release reversals used (the PTT "basculements"). */
+  reversals: number;
 }
 
 export interface HFRTRuntimeState {
-  /** Test start (tone playing, waiting for the first hold). */
+  /** Test start (tone playing). */
   startedAt: number;
-  /** When the user first held → the sweep begins (0 until then). */
-  sweepStartedAt: number;
+  /** Frequency currently played. Rises while held, falls while released. */
   currentFreq: number;
-  /** Highest frequency reached while the button was held. */
-  maxFreqWhileHeld: number;
-  /** True once the user has held at least once (perceived the start tone). */
+  /** Frequencies (Hz) at each reversal (hold↔release direction change). */
+  reversals: number[];
+  /** Last hold/release state, to detect reversals. */
+  lastTransition: 'hold' | 'release' | null;
+  /** Timestamp of the last reversal, for stall detection. */
+  lastReversalAt: number;
+  /** True once the user has held at least once (perceived a tone). */
   everHeld: boolean;
-  /** Start of the current post-hold release (0 while held or not yet started). */
-  releaseStartedAt: number;
+  /** True once the tone was first lost going up (hold→release) → switch to fine steps. */
+  everLostTone: boolean;
+  /** Highest frequency reached while held (fallback estimate). */
+  maxFreqWhileHeld: number;
 }

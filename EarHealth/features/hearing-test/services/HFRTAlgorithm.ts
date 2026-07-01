@@ -1,72 +1,101 @@
 import type { HFRTResult, HFRTRuntimeState } from '../types/hfrt.types';
 
 // ── Tunable parameters ────────────────────────────────────────────────────────
-// High-frequency limit test (extended HF, 8–20 kHz). A CONTINUOUS upward sweep:
-// once the user starts holding, the tone glides smoothly from 8 kHz toward 20 kHz.
-// The user holds while they still hear it and releases when it becomes inaudible;
-// the frequency reached at that point is their max audible frequency.
+// High-frequency limit test — the PTT staircase transposed to the FREQUENCY axis:
+//   • Hold "J'entends" (you hear the tone) → the frequency CLIMBS  (toward 20 kHz).
+//   • Release (you don't hear it)          → the frequency DESCENDS (toward 8 kHz).
+// The tone starts at 8 kHz. Each hold↔release change is a REVERSAL (basculement);
+// after N reversals the audible limit is the GEOMETRIC mean of the reversals.
+// Coarse steps until the tone is first lost going up, then fine steps (precision).
 
-export const HFRT_START_FREQ = 8000;   // sweep start — audible to virtually everyone
-export const HFRT_MIN_FREQ   = 8000;   // low end of the displayed scale (chart / gauge)
-export const HFRT_MAX_FREQ   = 20_000; // sweep end / ceiling (and most hardware's limit)
+export const HFRT_START_FREQ = 8000;   // where the tone starts (and the low bound)
+export const HFRT_MIN_FREQ   = 8000;   // floor of the band (kept for gauge / chart)
+export const HFRT_MAX_FREQ   = 20_000; // ceiling (and most hardware's limit)
 
-export const HFRT_SWEEP_DURATION_MS  = 15_000; // time to glide 8 → 20 kHz while held
-export const HFRT_TICK_MS            = 50;      // update period (smooth glide)
-export const HFRT_VOLUME             = 0.18;    // fixed comfortable volume
+export const HFRT_VOLUME  = 0.18;      // fixed comfortable volume
+export const HFRT_STEP_MS = 100;       // one staircase step (also the update period)
 
-export const HFRT_NO_RESPONSE_MS     = 3500; // never held → no response (can't hear 8 kHz / bad setup)
-export const HFRT_PROMPT_AFTER_MS    = 1500; // show a "hold to start" hint after this delay
-export const HFRT_RELEASE_CONFIRM_MS = 500;  // sustained release after hearing = "lost it"
+// Coarse "search" (until the first hold→release reversal), then fine "track".
+export const HFRT_SEARCH_UP   = 1.03;  // +3 % per step when held
+export const HFRT_SEARCH_DOWN = 0.97;  // -3 % per step when released
+export const HFRT_TRACK_UP    = 1.012; // +1.2 % per step when held (fine)
+export const HFRT_TRACK_DOWN  = 0.988; // -1.2 % per step when released (fine)
+
+export const HFRT_REVERSALS_TARGET = 8;      // converge after N reversals (the "basculements")
+export const HFRT_INACTIVITY_MS    = 6000;   // no reversal for this long → nudge the user
+export const HFRT_STALL_MS         = 10_000; // no reversal for this long → finish (no dead-end)
+export const HFRT_MAX_DURATION_MS  = 60_000; // absolute backstop
 
 // ── State factory ─────────────────────────────────────────────────────────────
 export function makeInitialRuntimeState(): HFRTRuntimeState {
   return {
     startedAt: 0,
-    sweepStartedAt: 0,
     currentFreq: HFRT_START_FREQ,
-    maxFreqWhileHeld: HFRT_START_FREQ,
+    reversals: [],
+    lastTransition: null,
+    lastReversalAt: 0,
     everHeld: false,
-    releaseStartedAt: 0,
+    everLostTone: false,
+    maxFreqWhileHeld: HFRT_START_FREQ,
   };
 }
 
-// ── Continuous log sweep ──────────────────────────────────────────────────────
-// Logarithmic (constant octaves per second) so the rise sounds perceptually even.
-//   f(t) = START · (MAX / START)^(t / DURATION),   t clamped to [0, DURATION]
-export function freqAtElapsed(elapsedMs: number): number {
-  const t = Math.min(1, Math.max(0, elapsedMs / HFRT_SWEEP_DURATION_MS));
-  return HFRT_START_FREQ * Math.pow(HFRT_MAX_FREQ / HFRT_START_FREQ, t);
+// ── Staircase step ────────────────────────────────────────────────────────────
+// Multiplicative (log) step: held → up, released → down. Coarse until the first
+// "lost the tone" reversal, then fine. Clamped to [8 kHz, 20 kHz].
+export function adjustStaircaseFrequency(currentFreq: number, isHeld: boolean, isFine: boolean): number {
+  const up   = isFine ? HFRT_TRACK_UP   : HFRT_SEARCH_UP;
+  const down = isFine ? HFRT_TRACK_DOWN : HFRT_SEARCH_DOWN;
+  const next = isHeld ? currentFreq * up : currentFreq * down;
+  return Math.min(HFRT_MAX_FREQ, Math.max(HFRT_MIN_FREQ, next));
+}
+
+// A "reversal" (basculement) is a change of direction heard↔not-heard. We store
+// the frequency at each reversal — these bracket the true audible limit.
+export function recordReversal(
+  reversals: number[],
+  lastTransition: 'hold' | 'release' | null,
+  newTransition: 'hold' | 'release',
+  currentFreq: number,
+): { reversals: number[]; isReversal: boolean } {
+  if (lastTransition === null || lastTransition === newTransition) {
+    return { reversals, isReversal: false };
+  }
+  return { reversals: [...reversals, Math.round(currentFreq)], isReversal: true };
+}
+
+// THE FORMULA (from the PTT): geometric mean of the reversal frequencies, discarding
+// the 1st (the initial acquisition is biased, like the PTT's first reversal).
+// Geometric because pitch is perceived logarithmically:
+//   f_max = exp( (1/(n-1)) · Σ_{i=2..n} ln(f_i) )
+export function computeRefinedFrequency(reversals: number[]): number | null {
+  if (reversals.length === 0) return null;
+  const usable = reversals.length >= 2 ? reversals.slice(1) : reversals;
+  const logSum = usable.reduce((acc, f) => acc + Math.log(f), 0);
+  return Math.round(Math.exp(logSum / usable.length));
 }
 
 // ── Build results ─────────────────────────────────────────────────────────────
-// Normal / ceiling outcome. `maxFreqWhileHeld` is the highest frequency the user
-// confirmed hearing; `hitCeiling` means they held all the way to 20 kHz.
-export function buildSweepResult(
-  maxFreqWhileHeld: number,
-  hitCeiling: boolean,
+export function buildRefinedResult(
+  reversals: number[],
+  fallbackFreq: number,
   durationMs: number,
 ): HFRTResult {
-  const clamped = Math.min(HFRT_MAX_FREQ, Math.max(HFRT_START_FREQ, Math.round(maxFreqWhileHeld)));
-  const maxAudibleFrequency = hitCeiling ? HFRT_MAX_FREQ : clamped;
-  // A release barely above the 8 kHz start is likely a mishit or an inaudible
-  // start tone → flag for a retry. A genuine reading or a ceiling hit is reliable.
-  const reliable = hitCeiling || maxAudibleFrequency > HFRT_START_FREQ + 300;
-  return { maxAudibleFrequency, reliable, durationMs, hitCeiling, noResponse: false };
+  const refined = computeRefinedFrequency(reversals) ?? fallbackFreq;
+  const maxAudibleFrequency = Math.min(HFRT_MAX_FREQ, Math.max(HFRT_MIN_FREQ, Math.round(refined)));
+  const reliable = reversals.length >= HFRT_REVERSALS_TARGET;
+  return { maxAudibleFrequency, reliable, durationMs, hitCeiling: false, noResponse: false, reversals: reversals.length };
 }
 
-// No-response outcome: the user never perceived even the 8 kHz start tone.
+export function buildCeilingResult(durationMs: number): HFRTResult {
+  return { maxAudibleFrequency: HFRT_MAX_FREQ, reliable: true, durationMs, hitCeiling: true, noResponse: false, reversals: 0 };
+}
+
 export function buildNoResponseResult(): HFRTResult {
-  return {
-    maxAudibleFrequency: HFRT_START_FREQ,
-    reliable: false,
-    durationMs: 0,
-    hitCeiling: false,
-    noResponse: true,
-  };
+  return { maxAudibleFrequency: HFRT_START_FREQ, reliable: false, durationMs: 0, hitCeiling: false, noResponse: true, reversals: 0 };
 }
 
 // ── Age helper (runtime-only: reads the current date) ─────────────────────────
-// Kept here so the hook and the result view derive age identically.
 export function computeAge(dateOfBirth: string | null | undefined): number | null {
   if (!dateOfBirth) return null;
   const dob = new Date(dateOfBirth);
@@ -80,21 +109,16 @@ export function computeAge(dateOfBirth: string | null | undefined): number | nul
 }
 
 // ── Age-referenced expectation ────────────────────────────────────────────────
-// HEURISTIC, non-diagnostic. Presbycusis lowers the audible ceiling roughly
-// linearly with age. Anchored ~17.5 kHz at 20 y/o, declining ~200 Hz/year.
+// HEURISTIC, non-diagnostic. Anchored ~17.5 kHz at 20 y/o, declining ~200 Hz/year.
 function rawExpectedForAge(age: number): number {
   return 17_500 - (age - 20) * 200;
 }
 
-// Clamped to the test bounds — safe for display (chart marker, "expected" text).
 export function expectedMaxFrequencyForAge(age: number): number {
   return Math.min(HFRT_MAX_FREQ, Math.max(HFRT_MIN_FREQ, rawExpectedForAge(age)));
 }
 
-// The linear model only carries information where its expectation stays strictly
-// INSIDE the measurable band (≈ 8–67 y/o). Outside it, the expectation saturates
-// against a bound and the relative verdict becomes meaningless → callers fall back
-// to the absolute, fixed-threshold interpretation.
+// Meaningful only where the expectation stays inside the measurable band (8–20 kHz).
 export function isAgeModelMeaningful(age: number): boolean {
   const raw = rawExpectedForAge(age);
   return raw > HFRT_MIN_FREQ && raw < HFRT_MAX_FREQ;
@@ -114,19 +138,17 @@ export function interpretMaxFrequency(maxHz: number): { label: string; hint: str
 export interface AgeAwareInterpretation {
   label: string;
   hint: string;
-  expectedHz: number | null;                 // null when age unknown / model saturated
+  expectedHz: number | null;
   relative: 'above' | 'typical' | 'below' | null;
 }
 
 export function interpretForAge(maxHz: number, age: number | null): AgeAwareInterpretation {
-  // No age, or the age model has saturated against a test bound → fall back to
-  // the absolute, fixed-threshold interpretation (no misleading relative verdict).
   if (age == null || !isAgeModelMeaningful(age)) {
     const fixed = interpretMaxFrequency(maxHz);
     return { label: fixed.label, hint: fixed.hint, expectedHz: null, relative: null };
   }
   const expectedHz = expectedMaxFrequencyForAge(age);
-  const ratio = maxHz / expectedHz;                  // 1.0 = exactly the age norm
+  const ratio = maxHz / expectedHz;
   const relative: 'above' | 'typical' | 'below' =
     ratio >= 1.06 ? 'above' : ratio <= 0.94 ? 'below' : 'typical';
 
@@ -145,9 +167,6 @@ export function interpretForAge(maxHz: number, age: number | null): AgeAwareInte
 }
 
 // ── Score ─────────────────────────────────────────────────────────────────────
-// Age-relative: matching your age norm ≈ 85, exceeding it climbs toward 100,
-// below it drops. Falls back to the absolute ratio over the ceiling when age is
-// unknown or the model has saturated.
 export function hfrtScoreForAge(maxHz: number, age: number | null): number {
   if (age == null || !isAgeModelMeaningful(age)) {
     return Math.round(Math.min(100, Math.max(0, (maxHz / HFRT_MAX_FREQ) * 100)));

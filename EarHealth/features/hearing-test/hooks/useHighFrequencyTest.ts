@@ -2,22 +2,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioEngineHandle } from '../audio/AudioEngine';
 import { saveHearingResultResilient } from '../services/HearingResultService';
 import {
+  HFRT_INACTIVITY_MS,
+  HFRT_MAX_DURATION_MS,
   HFRT_MAX_FREQ,
-  HFRT_NO_RESPONSE_MS,
-  HFRT_PROMPT_AFTER_MS,
-  HFRT_RELEASE_CONFIRM_MS,
+  HFRT_REVERSALS_TARGET,
+  HFRT_STALL_MS,
   HFRT_START_FREQ,
-  HFRT_SWEEP_DURATION_MS,
-  HFRT_TICK_MS,
+  HFRT_STEP_MS,
   HFRT_VOLUME,
+  adjustStaircaseFrequency,
+  buildCeilingResult,
   buildNoResponseResult,
-  buildSweepResult,
+  buildRefinedResult,
   computeAge,
-  freqAtElapsed,
   hfrtScoreForAge,
   interpretForAge,
   interpretMaxFrequency,
   makeInitialRuntimeState,
+  recordReversal,
 } from '../services/HFRTAlgorithm';
 import type { HearingSaveStatus, HFRTPayload } from '../services/hearing.storage';
 import type { HFRTResult, HFRTRuntimeState, HFRTStage } from '../types/hfrt.types';
@@ -36,20 +38,18 @@ interface UseHighFrequencyTestArgs {
 export function useHighFrequencyTest({
   audio, audioReady, userId, onSaved, dateOfBirth,
 }: UseHighFrequencyTestArgs) {
-  const [stage, setStage]               = useState<HFRTStage>('intro');
-  const [currentFreq, setCurrentFreq]   = useState(HFRT_START_FREQ);
-  const [isHeld, setIsHeld]             = useState(false);
-  // "Hold while you hear it" hint shown if the user hasn't pressed yet.
-  const [inactiveWarn, setInactiveWarn] = useState(false);
-  const [result, setResult]             = useState<HFRTResult | null>(null);
-  const [saveStatus, setSaveStatus]     = useState<HearingSaveStatus>('idle');
+  const [stage, setStage]                 = useState<HFRTStage>('intro');
+  const [currentFreq, setCurrentFreq]     = useState(HFRT_START_FREQ);
+  const [reversalCount, setReversalCount] = useState(0);
+  const [isHeld, setIsHeld]               = useState(false);
+  const [inactiveWarn, setInactiveWarn]   = useState(false);
+  const [result, setResult]               = useState<HFRTResult | null>(null);
+  const [saveStatus, setSaveStatus]       = useState<HearingSaveStatus>('idle');
 
   const stateRef = useRef<HFRTRuntimeState>(makeInitialRuntimeState());
   const heldRef  = useRef(false);
   const tickRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastLogRef = useRef(0); // DEBUG: last frequency logged to the terminal
 
-  // ── Save refs (mirror of useQuiz pattern) ──
   const savedRef   = useRef(false);
   const onSavedRef = useRef(onSaved);
   onSavedRef.current = onSaved;
@@ -69,11 +69,10 @@ export function useHighFrequencyTest({
     setStage('result');
   }, [stopTicking]);
 
-  // ── One sweep tick ──
-  // The frequency is a pure function of wall-clock time since the test started,
-  // so it ALWAYS glides 8 → 20 kHz on its own — independent of the hold button
-  // and of audio readiness. The button only marks where the tone became
-  // inaudible (the user's max audible frequency).
+  // ── One staircase step ──
+  // Hold → climb toward 20 kHz; release → descend toward 8 kHz. Coarse steps
+  // until the tone is first lost going up (first hold→release reversal), then
+  // fine steps. The audible limit is the geometric mean of the reversals.
   const tick = useCallback(() => {
     const st = stateRef.current;
     if (st.startedAt === 0) return;
@@ -81,63 +80,74 @@ export function useHighFrequencyTest({
     const now  = Date.now();
     const held = heldRef.current;
 
-    const elapsed  = now - st.startedAt;
-    const freq     = freqAtElapsed(elapsed);
-    const everHeld = st.everHeld || held;
-    const maxWhileHeld     = held ? Math.max(st.maxFreqWhileHeld, freq) : st.maxFreqWhileHeld;
-    const releaseStartedAt = held ? 0 : (everHeld ? (st.releaseStartedAt || now) : 0);
+    const newTrans: 'hold' | 'release' = held ? 'hold' : 'release';
+    const { reversals, isReversal } = recordReversal(st.reversals, st.lastTransition, newTrans, st.currentFreq);
+    const everHeld       = st.everHeld || held;
+    const everLostTone   = st.everLostTone || (isReversal && newTrans === 'release');
+    const lastReversalAt = isReversal ? now : st.lastReversalAt;
+
+    // Step uses the phase BEFORE this reversal (like the PTT): the switch to fine
+    // takes effect on the next step.
+    const nextFreq = adjustStaircaseFrequency(st.currentFreq, held, st.everLostTone);
+    const maxWhileHeld = held ? Math.max(st.maxFreqWhileHeld, nextFreq) : st.maxFreqWhileHeld;
 
     stateRef.current = {
       ...st,
-      currentFreq:      freq,
+      currentFreq:      nextFreq,
+      reversals,
+      lastTransition:   newTrans,
       everHeld,
+      everLostTone,
+      lastReversalAt,
       maxFreqWhileHeld: maxWhileHeld,
-      releaseStartedAt,
-      sweepStartedAt:   st.sweepStartedAt || (everHeld ? now : 0),
     };
-    const rounded = Math.round(freq);
-    setCurrentFreq(rounded);
-    audio.current?.setFrequency(freq);
-    setInactiveWarn(!everHeld && elapsed > HFRT_PROMPT_AFTER_MS);
+    setCurrentFreq(Math.round(nextFreq));
+    audio.current?.setFrequency(nextFreq);
+    setReversalCount(reversals.length);
 
-    // DEBUG: log the frequency currently played, throttled to ~every 100 Hz step
-    // so the Metro/Expo terminal isn't flooded (the tick runs every 50 ms).
-    if (Math.abs(rounded - lastLogRef.current) >= 100) {
-      lastLogRef.current = rounded;
-      ///console.log(`[HFRT] Fréquence jouée : ${rounded} Hz${held ? ' (entendu)' : ''}`);
+    const sinceReversal = now - lastReversalAt;
+    setInactiveWarn(sinceReversal > HFRT_INACTIVITY_MS);
+
+    // Ceiling: climbed straight to the top and still hearing (no tracking band).
+    if (held && nextFreq >= HFRT_MAX_FREQ - 1 && reversals.length < 2) {
+      finish(buildCeilingResult(now - st.startedAt));
+      return;
     }
-
-    // End — the sweep reached the top of the range.
-    if (elapsed >= HFRT_SWEEP_DURATION_MS || freq >= HFRT_MAX_FREQ - 1) {
-      finish(everHeld ? buildSweepResult(maxWhileHeld, /* hitCeiling */ held, elapsed)
+    // Converged on enough reversals → precise geometric-mean average.
+    if (reversals.length >= HFRT_REVERSALS_TARGET) {
+      finish(buildRefinedResult(reversals, maxWhileHeld, now - st.startedAt));
+      return;
+    }
+    // Stalled (no reversal for a while): finish with the best estimate, or
+    // "no response" if the user never perceived anything.
+    if (sinceReversal > HFRT_STALL_MS) {
+      finish(everHeld ? buildRefinedResult(reversals, maxWhileHeld, now - st.startedAt)
                       : buildNoResponseResult());
       return;
     }
-    // End — never perceived even the 8 kHz start tone within the grace.
-    if (!everHeld && elapsed > HFRT_NO_RESPONSE_MS) {
-      finish(buildNoResponseResult());
-      return;
-    }
-    // End — sustained release after hearing → this is the audible limit.
-    if (everHeld && !held && releaseStartedAt > 0 && now - releaseStartedAt >= HFRT_RELEASE_CONFIRM_MS) {
-      finish(buildSweepResult(maxWhileHeld, /* hitCeiling */ false, elapsed));
+    // Absolute safety backstop.
+    if (now - st.startedAt > HFRT_MAX_DURATION_MS) {
+      finish(everHeld ? buildRefinedResult(reversals, maxWhileHeld, now - st.startedAt)
+                      : buildNoResponseResult());
     }
   }, [audio, finish]);
 
-  // ── Start the visual sweep the moment we enter the testing stage ──
-  // Deliberately NOT gated on audioReady so the frequency always moves; the tone
-  // (started below) simply tracks it once the audio bridge is up.
+  // ── Start the staircase on entering the testing stage (independent of
+  //    audioReady so the frequency always moves; the tone tracks it below). ──
   useEffect(() => {
     if (stage !== 'testing') return;
-    stateRef.current = { ...makeInitialRuntimeState(), startedAt: Date.now() };
+    const now = Date.now();
+    stateRef.current = { ...makeInitialRuntimeState(), startedAt: now, lastReversalAt: now };
     setCurrentFreq(HFRT_START_FREQ);
+    setReversalCount(0);
+    setInactiveWarn(false);
     if (tickRef.current) clearInterval(tickRef.current);
-    tickRef.current = setInterval(tick, HFRT_TICK_MS);
+    tickRef.current = setInterval(tick, HFRT_STEP_MS);
     return stopTicking;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stage]);
 
-  // ── Start the tone once the audio bridge is ready; it tracks the sweep. ──
+  // ── Start the tone once the audio bridge is ready; it tracks the staircase. ──
   useEffect(() => {
     if (stage !== 'testing') return;
     if (!audioReady) return;
@@ -149,6 +159,7 @@ export function useHighFrequencyTest({
   const start = useCallback(() => {
     stateRef.current = makeInitialRuntimeState();
     setCurrentFreq(HFRT_START_FREQ);
+    setReversalCount(0);
     setResult(null);
     setInactiveWarn(false);
     setStage('testing');
@@ -162,6 +173,7 @@ export function useHighFrequencyTest({
     setResult(null);
     stateRef.current = makeInitialRuntimeState();
     setCurrentFreq(HFRT_START_FREQ);
+    setReversalCount(0);
     setIsHeld(false);
     heldRef.current = false;
     setInactiveWarn(false);
@@ -179,8 +191,6 @@ export function useHighFrequencyTest({
   }, [stopTicking]);
 
   // ── Auto-save when a valid result is available ──
-  // Durability first via the AsyncStorage queue, then idempotent upsert. A
-  // "no response" outcome is NOT persisted (setup problem, not a measurement).
   useEffect(() => {
     if (stage !== 'result') return;
     if (!result)            return;
@@ -197,9 +207,9 @@ export function useHighFrequencyTest({
 
     const payload: HFRTPayload = {
       maxFrequencyHz:   maxHz,
-      // Stable ABSOLUTE label, independent of age → single stored vocabulary.
       interpretation:   interpretMaxFrequency(maxHz).label,
       reliable:         result.reliable,
+      reversals:        result.reversals,
       durationMs:       result.durationMs,
       hitCeiling:       result.hitCeiling,
       noResponse:       result.noResponse,
@@ -224,6 +234,7 @@ export function useHighFrequencyTest({
   return {
     stage,
     currentFreq,
+    reversalCount,
     isHeld,
     inactiveWarn,
     result,
