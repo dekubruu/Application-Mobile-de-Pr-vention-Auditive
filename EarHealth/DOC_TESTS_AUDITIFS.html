@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>HearSafe — Fonctionnement technique des tests auditifs</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1a2230; line-height: 1.5; font-size: 11.5px; margin: 0;
+  }
+  h1 { font-size: 25px; color: #0B7285; margin: 0 0 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 17px; color: #0B7285; border-bottom: 2px solid #0B7285;
+       padding-bottom: 4px; margin: 26px 0 12px; page-break-after: avoid; }
+  h3 { font-size: 13.5px; color: #155E75; margin: 18px 0 6px; page-break-after: avoid; }
+  h4 { font-size: 12px; color: #334155; margin: 12px 0 4px; }
+  p { margin: 6px 0; }
+  code, pre { font-family: "Cascadia Code", "Consolas", monospace; }
+  code { background: #eef2f6; padding: 1px 4px; border-radius: 3px; font-size: 10.5px; color: #0f172a; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 10px 12px; border-radius: 8px;
+        font-size: 10px; line-height: 1.45; overflow-x: auto; page-break-inside: avoid; }
+  pre .c { color: #7dd3fc; }        /* comment-ish highlight */
+  .eq { background: #E0F2F7; border-left: 4px solid #0B7285; padding: 8px 12px;
+        border-radius: 4px; margin: 8px 0; font-family: "Cambria Math","Consolas",serif;
+        font-size: 12.5px; page-break-inside: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10.8px; page-break-inside: avoid; }
+  th, td { border: 1px solid #cbd5e1; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { background: #0B7285; color: #fff; font-weight: 600; }
+  tr:nth-child(even) td { background: #f1f5f9; }
+  .lead { color: #475569; font-size: 12px; margin: 2px 0 0; }
+  .tag { display: inline-block; background: #E0F2F7; color: #0B7285; font-weight: 700;
+         font-size: 9.5px; padding: 2px 8px; border-radius: 10px; letter-spacing: .4px; }
+  .note { background: #FEF3C7; border-left: 4px solid #B45309; padding: 8px 12px;
+          border-radius: 4px; margin: 10px 0; font-size: 10.8px; page-break-inside: avoid; }
+  .file { color: #0B7285; font-weight: 600; font-family: "Consolas",monospace; font-size: 10.5px; }
+  .cover { text-align: center; padding: 60px 0 30px; }
+  .cover h1 { font-size: 34px; }
+  .cover .sub { font-size: 15px; color: #475569; margin-top: 8px; }
+  .cover .meta { margin-top: 26px; font-size: 11px; color: #64748b; }
+  .pb { page-break-before: always; }
+  ul { margin: 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .two { display: flex; gap: 14px; }
+  .two > div { flex: 1; }
+  .k { color:#0B7285; font-weight:700; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="tag">DOCUMENTATION TECHNIQUE — TFE</div>
+  <h1>Les deux tests auditifs de HearSafe</h1>
+  <div class="sub">Fonctionnement technique &amp; production par le code</div>
+  <div class="sub" style="margin-top:14px;">Test tonal pur (PTT) &nbsp;·&nbsp; Test de fréquence maximale audible (HFRT)</div>
+  <div class="meta">
+    Application mobile React Native / Expo &nbsp;·&nbsp; TypeScript<br>
+    Génération du son : WebView cachée + Web Audio API
+  </div>
+</div>
+
+<h2>1. Vue d'ensemble &amp; principe commun</h2>
+<p>L'application propose <b>deux tests auditifs</b> complémentaires :</p>
+<table>
+  <tr><th>Test</th><th>Ce qu'il mesure</th><th>Axe exploré</th><th>Plage</th></tr>
+  <tr><td><b>PTT</b> — test tonal pur<br><span class="lead">(audiométrie tonale liminaire)</span></td>
+      <td>Le <b>seuil auditif</b> : le son le plus faible perçu, pour chaque fréquence</td>
+      <td><b>Intensité</b> (dB)</td>
+      <td>500, 1000, 2000, 4000 Hz</td></tr>
+  <tr><td><b>HFRT</b> — fréquence max audible<br><span class="lead">(« mosquito tone »)</span></td>
+      <td>La <b>fréquence la plus aiguë</b> encore perçue</td>
+      <td><b>Fréquence</b> (Hz)</td>
+      <td>8 kHz → 20 kHz</td></tr>
+</table>
+
+<p><b>Le principe est le même pour les deux</b> — c'est celui de l'audiométrie clinique
+(Hughson-Westlake / Békésy), le HFRT n'étant qu'une <b>transposition</b> du PTT sur l'axe des
+fréquences :</p>
+<ul>
+  <li><b>Escalier adaptatif</b> : l'utilisateur maintient un bouton tant qu'il entend, le relâche sinon.</li>
+  <li><b>Deux phases</b> : recherche <i>grossière</i> (gros pas, rapide) puis suivi <i>fin</i> (petits pas, précis).</li>
+  <li><b>Inversions (basculements)</b> : chaque changement <i>maintenir↔relâcher</i> encadre la limite.</li>
+  <li><b>Moyenne des inversions</b> (la 1ʳᵉ écartée) = la valeur mesurée précise.</li>
+</ul>
+
+<div class="note"><b>Cadre honnête :</b> matériel non calibré, résultats <b>non cliniques</b>.
+Les dB du PTT sont une atténuation logicielle relative (pas du dB HL) ; le HFRT dépend fortement
+des écouteurs. L'objectif est la <b>sensibilisation</b>, pas le diagnostic.</div>
+
+<h2>2. Production du son — commune aux deux tests</h2>
+<p>React Native n'a pas de synthétiseur audio natif. La solution : une <b>WebView cachée</b>
+(<span class="file">react-native-webview</span>) qui exécute l'<b>API Web Audio</b> du navigateur.
+Le son pur (sinusoïde) y est généré par un oscillateur.</p>
+
+<h3>2.1 Le générateur (dans la WebView) — <span class="file">hearing-test.constants.ts</span></h3>
+<pre><span class="c">// WEBVIEW_AUDIO_HTML — fonction playTone()</span>
+var osc  = ctx.createOscillator();
+osc.type = 'sine';               <span class="c">// onde SINUSOÏDALE (son pur)</span>
+osc.frequency.value = frequency; <span class="c">// hauteur en Hz</span>
+gain.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.025); <span class="c">// fondu anti-clic</span>
+gain.connect(ctx.destination);   <span class="c">// vers le haut-parleur</span>
+osc.start();                     <span class="c">// ▶ le son sort</span>
+
+window.setFrequency = function(f){ _osc.frequency.setValueAtTime(f, _ctx.currentTime); }; <span class="c">// glissando</span></pre>
+
+<h3>2.2 Le pont React Native ↔ WebView — <span class="file">audio/AudioEngine.tsx</span></h3>
+<p>Le composant expose <code>playTone</code>, <code>setFrequency</code>, <code>stopTone</code>.
+Ces appels sont injectés dans la WebView :</p>
+<pre>setFrequency(f){ webViewRef.current?.injectJavaScript(`window.setFrequency &amp;&amp; window.setFrequency(${f});`); }</pre>
+<div class="note"><b>Piège connu &amp; corrigé :</b> l'injection fait <code>window.fn &amp;&amp; window.fn(...)</code>.
+Si une fonction manque côté WebView, l'appel est un <b>no-op silencieux</b> (aucune erreur). C'est ce qui
+avait rendu le HFRT muet un temps : <code>setFrequency</code> avait disparu du HTML → le son restait figé.</div>
+
+<h2 class="pb">3. Test tonal pur (PTT)</h2>
+<p class="lead">Fichiers : <span class="file">PTTAlgorithm.ts</span>, <span class="file">usePureToneTest.ts</span>,
+<span class="file">AudiogramChart.tsx</span>, <span class="file">PTTResultView.tsx</span>.</p>
+
+<h3>3.1 Déroulé</h3>
+<p>Pour chaque oreille, on teste 4 fréquences en séquence. Le son est <b>pulsé</b>
+(<b>250 ms ON / 350 ms OFF</b>, cycle de 600 ms = tick de décision). L'utilisateur
+<b>maintient</b> « J'entends » tant qu'il perçoit le bip, <b>relâche</b> sinon.</p>
+
+<h3>3.2 L'escalier à deux phases (Hughson-Westlake)</h3>
+<table>
+  <tr><th></th><th>Phase 1 — Recherche</th><th>Phase 2 — Suivi</th></tr>
+  <tr><td>Déclencheur</td><td>0 inversion</td><td>≥ 1 inversion</td></tr>
+  <tr><td>Pas (asymétriques / symétriques)</td><td><b>−10 dB</b> si entendu / <b>+5 dB</b> sinon</td><td><b>±3 dB</b></td></tr>
+  <tr><td>But</td><td>Cadrer vite la zone du seuil</td><td>Osciller finement autour du seuil</td></tr>
+</table>
+<p>C'est la règle clinique <b>« 10 down / 5 up »</b> : on descend fort dès qu'on entend (pour passer
+sous le seuil), on remonte doucement sinon.</p>
+
+<h4>Le pas, dans le code — <span class="file">PTTAlgorithm.ts</span></h4>
+<pre>export function adjustDb(currentDb, isHeld, reversalCount) {
+  const steps = getStepsForPhase(reversalCount); <span class="c">// 0 inv. → -10/+5 ; sinon → ±3</span>
+  const next  = isHeld ? currentDb - steps.hold : currentDb + steps.release;
+  return Math.min(PTT_MAX_DB, Math.max(PTT_MIN_DB, next)); <span class="c">// borné [-20, 80]</span>
+}</pre>
+
+<h3>3.3 Les inversions et la formule du seuil</h3>
+<p>Une <b>inversion</b> est un changement de sens <i>maintenir↔relâcher</i>. On vise <b>6 inversions</b>.
+La 1ʳᵉ (issue de la phase grossière, biaisée par le point de départ) est <b>écartée</b>, puis on
+<b>moyenne</b> les dB des inversions restantes :</p>
+<div class="eq">seuil = ( 1 / (n−1) ) · Σ<sub>i=2..n</sub> dB<sub>i</sub></div>
+<pre>export function computeThresholdDb(reversals) {
+  const usable = reversals.length &gt;= 2 ? reversals.slice(1) : reversals; <span class="c">// on jette la 1ère</span>
+  const sum    = usable.reduce((acc, r) =&gt; acc + r.db, 0);
+  return Math.round(sum / usable.length); <span class="c">// moyenne arithmétique (axe dB)</span>
+}</pre>
+
+<h3>3.4 Du dB au son : la conversion</h3>
+<p>Le dB interne est transformé en gain Web Audio (formule inverse du décibel, référence 60) :</p>
+<div class="eq">volume = min( 1 , max( 0.00005 , 10<sup>(dB − 60) / 20</sup> ) )</div>
+
+<h3>3.5 Boucle temps réel — <span class="file">usePureToneTest.ts</span></h3>
+<p>L'état de l'algorithme vit dans des <code>useRef</code> (et non <code>useState</code>) : la boucle
+tourne sur un timer de 600 ms ; un <code>ref</code> garantit que le callback lit toujours la valeur
+<b>fraîche et synchrone</b> (pas une closure périmée). Chaque cycle : on échantillonne l'appui →
+on détecte l'inversion → on ajuste le dB → on joue le bip 250 ms → on planifie le suivant.</p>
+
+<h3>3.6 Résultat : l'audiogramme</h3>
+<p>La moyenne des 4 seuils par oreille donne le <b>PTA-4</b> (méthode OMS). L'<b>audiogramme</b>
+(<span class="file">AudiogramChart.tsx</span>, dessiné en <code>View</code> sans librairie SVG) place :</p>
+<ul>
+  <li><b>Axe X</b> = fréquence en échelle <b>logarithmique</b> : <code>x = (ln f − ln f<sub>min</sub>) / (ln f<sub>max</sub> − ln f<sub>min</sub>)</code></li>
+  <li><b>Axe Y</b> = dB en échelle linéaire <b>inversée</b> (haut = meilleure audition — convention clinique)</li>
+  <li>Oreille droite = cercle rouge (O), gauche = croix bleue (X)</li>
+</ul>
+
+<h2 class="pb">4. Test de fréquence maximale audible (HFRT)</h2>
+<p class="lead">Fichiers : <span class="file">HFRTAlgorithm.ts</span>, <span class="file">useHighFrequencyTest.ts</span>,
+<span class="file">HFRTResultView.tsx</span>, <span class="file">HFRTSpectrumChart.tsx</span>.</p>
+
+<p>Le HFRT reprend <b>exactement la logique du PTT</b> (escalier, inversions, moyenne), mais
+transposée à l'axe des <b>fréquences</b>. Le pas devient <b>multiplicatif</b> (logarithmique), car la
+hauteur tonale se perçoit de façon logarithmique.</p>
+
+<h3>4.1 La mécanique : escalier piloté par l'appui</h3>
+<table>
+  <tr><th>Action</th><th>Effet sur la fréquence</th></tr>
+  <tr><td><b>Maintenir</b> « J'entends » (tu perçois le son)</td><td>elle <b>MONTE</b> (vers 20 kHz)</td></tr>
+  <tr><td><b>Relâcher</b> (tu n'entends plus)</td><td>elle <b>DESCEND</b> (vers 8 kHz)</td></tr>
+</table>
+<p>Le son <b>démarre à 8 kHz</b>. Tant que tu l'entends tu maintiens (ça monte) ; dès qu'il devient
+inaudible tu relâches (ça redescend) → ça oscille autour de ta limite.</p>
+
+<h3>4.2 Les deux phases</h3>
+<table>
+  <tr><th></th><th>Phase 1 — Recherche (grossière)</th><th>Phase 2 — Suivi (fine)</th></tr>
+  <tr><td>Déclencheur</td><td>tant que le son n'a jamais été perdu en montant</td><td>dès le 1ᵉʳ son perdu en montant (<code>everLostTone</code>)</td></tr>
+  <tr><td>Pas (par 100 ms)</td><td><b>×1.018 / ×0.982</b> (±1,8 %)</td><td><b>×1.012 / ×0.988</b> (±1,2 %)</td></tr>
+  <tr><td>But</td><td>rejoindre vite la zone de la limite</td><td>préciser la limite</td></tr>
+</table>
+
+<h4>Le pas, dans le code — <span class="file">HFRTAlgorithm.ts</span></h4>
+<pre>export function adjustStaircaseFrequency(currentFreq, isHeld, isFine) {
+  const up   = isFine ? HFRT_TRACK_UP   : HFRT_SEARCH_UP;   <span class="c">// 1.012 : 1.018</span>
+  const down = isFine ? HFRT_TRACK_DOWN : HFRT_SEARCH_DOWN; <span class="c">// 0.988 : 0.982</span>
+  const next = isHeld ? currentFreq * up : currentFreq * down;
+  return Math.min(HFRT_MAX_FREQ, Math.max(HFRT_MIN_FREQ, next)); <span class="c">// borné [8k, 20k]</span>
+}</pre>
+
+<h3>4.3 Les inversions et la formule (transposée du PTT)</h3>
+<p>Même comptage d'inversions que le PTT (on vise <b>8 inversions</b>). La formule est la moyenne des
+inversions <b>en domaine logarithmique</b> = <b>moyenne géométrique</b> des fréquences (la 1ʳᵉ écartée) :</p>
+<div class="eq">f<sub>max</sub> = exp( ( 1 / (n−1) ) · Σ<sub>i=2..n</sub> ln( f<sub>i</sub> ) )</div>
+<pre>export function computeRefinedFrequency(reversals) {
+  const usable = reversals.length &gt;= 2 ? reversals.slice(1) : reversals; <span class="c">// on jette la 1ère</span>
+  const logSum = usable.reduce((acc, f) =&gt; acc + Math.log(f), 0);
+  return Math.round(Math.exp(logSum / usable.length)); <span class="c">// moyenne GÉOMÉTRIQUE</span>
+}</pre>
+<p class="lead">Géométrique et non arithmétique : moyenner en Hz bruts surpondérerait les inversions
+hautes ; en <code>ln(f)</code> chaque octave pèse pareil, ce qui correspond à la perception.</p>
+
+<h3>4.4 Détection des inversions — <span class="file">HFRTAlgorithm.ts</span></h3>
+<pre>export function recordReversal(reversals, lastTransition, newTransition, currentFreq) {
+  if (lastTransition === null || lastTransition === newTransition)
+    return { reversals, isReversal: false };          <span class="c">// même sens → pas d'inversion</span>
+  return { reversals: [...reversals, Math.round(currentFreq)], isReversal: true }; <span class="c">// basculement !</span>
+}</pre>
+
+<h3>4.5 La boucle — <span class="file">useHighFrequencyTest.ts</span></h3>
+<p>Un tick toutes les 100 ms (état dans des <code>useRef</code>, comme le PTT). À chaque tick :
+échantillonner l'appui → détecter l'inversion → basculer en pas fins au 1ᵉʳ son perdu → ajuster la
+fréquence → mettre à jour le son via <code>setFrequency</code>. Conditions de fin : <b>8 inversions</b>
+(→ formule), plafond 20 kHz atteint, blocage (aucune inversion pendant 10 s), ou « aucune réponse ».</p>
+
+<h3>4.6 Interprétation selon l'âge</h3>
+<p>La fréquence max chute avec l'âge (presbyacousie). Une heuristique compare le résultat à la moyenne
+attendue pour l'âge (via la date de naissance du profil) : <i>« au-dessus / typique / en-dessous de
+votre âge »</i>. Modèle documenté comme <b>indicatif, non diagnostique</b>.</p>
+
+<h2 class="pb">5. Le parallèle PTT ↔ HFRT</h2>
+<p>C'est le même algorithme, appliqué à deux axes différents :</p>
+<table>
+  <tr><th>Élément</th><th>PTT (test tonal)</th><th>HFRT (haute fréquence)</th></tr>
+  <tr><td>Ce qu'on cherche</td><td>seuil d'intensité</td><td>fréquence limite</td></tr>
+  <tr><td>Axe</td><td>Intensité — dB</td><td>Fréquence — Hz</td></tr>
+  <tr><td>Nature du pas</td><td><b>additif</b> (±dB)</td><td><b>multiplicatif / log</b> (×facteur)</td></tr>
+  <tr><td>Signal</td><td>pulsé (250/350 ms)</td><td>continu (glissando)</td></tr>
+  <tr><td>Phase grossière</td><td>−10 / +5 dB</td><td>×1.018 / ×0.982</td></tr>
+  <tr><td>Phase fine</td><td>±3 dB</td><td>×1.012 / ×0.988</td></tr>
+  <tr><td>Inversions cibles</td><td>6</td><td>8</td></tr>
+  <tr><td><b>Formule</b> (1ʳᵉ écartée)</td><td>moyenne <b>arithmétique</b> des dB</td><td>moyenne <b>géométrique</b> des Hz</td></tr>
+  <tr><td>Restitution</td><td>audiogramme (PTA-4)</td><td>échelle 8–20 kHz + zones d'âge</td></tr>
+</table>
+
+<p style="margin-top:14px;"><b>Phrase de synthèse (soutenance) :</b> <i>« Les deux tests reposent sur
+l'escalier adaptatif de Hughson-Westlake : recherche grossière puis suivi fin, avec comptage des
+inversions et moyenne (la première écartée). Le PTT le fait sur l'intensité (dB, pas additifs, moyenne
+arithmétique) pour trouver le seuil ; le HFRT le transpose à la fréquence (Hz, pas multiplicatifs,
+moyenne géométrique) pour trouver la limite haute. Le son est généré par un oscillateur Web Audio dans
+une WebView, piloté depuis React Native. »</i></p>
+
+<h2>6. Limites assumées</h2>
+<ul>
+  <li>Matériel <b>non calibré</b> : les résultats ne sont <b>pas cliniques</b> (pas de dB HL).</li>
+  <li>Le HFRT dépend fortement des écouteurs et de l'environnement.</li>
+  <li>Le timing des pulses/pas est piloté côté JS (non garanti à la ms près).</li>
+  <li>Objectif = <b>sensibilisation</b>, avec renvoi vers un audiologiste pour tout diagnostic.</li>
+</ul>
+
+</body>
+</html>
