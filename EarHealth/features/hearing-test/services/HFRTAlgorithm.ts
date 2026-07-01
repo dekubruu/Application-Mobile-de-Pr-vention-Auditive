@@ -16,8 +16,8 @@ export const HFRT_VOLUME  = 0.18;      // fixed comfortable volume
 export const HFRT_STEP_MS = 100;       // one staircase step (also the update period)
 
 // Coarse "search" (until the first hold→release reversal), then fine "track".
-export const HFRT_SEARCH_UP   = 1.03;  // +3 % per step when held
-export const HFRT_SEARCH_DOWN = 0.97;  // -3 % per step when released
+export const HFRT_SEARCH_UP   = 1.018; // +1.8 % per step when held (slowed coarse climb)
+export const HFRT_SEARCH_DOWN = 0.982; // -1.8 % per step when released
 export const HFRT_TRACK_UP    = 1.012; // +1.2 % per step when held (fine)
 export const HFRT_TRACK_DOWN  = 0.988; // -1.2 % per step when released (fine)
 
