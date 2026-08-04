@@ -35,7 +35,7 @@ function formatDate(iso: string): string {
 
 function entrySubtitle(e: HistoryEntry): string {
   if (e.testType === 'ptt') {
-    return e.ptaDb != null ? `Tonal · PTA ${toDisplayDb(e.ptaDb)} dB` : 'Test tonal (PTT)';
+    return e.ptaDb != null ? `Seuil auditif · PTA ${toDisplayDb(e.ptaDb)} dB` : 'Test du seuil auditif';
   }
   if (e.maxFrequencyHz != null) {
     return `Haute fréquence · ${e.hitCeiling ? '≥ 20' : (e.maxFrequencyHz / 1000).toFixed(1)} kHz`;
@@ -49,8 +49,8 @@ const CHART_MAX_POINTS = 12;
 
 const FILTERS: { key: HistoryFilter; label: string }[] = [
   { key: 'all',  label: 'Tous' },
-  { key: 'ptt',  label: 'PTT' },
-  { key: 'hfrt', label: 'HFRT' },
+  { key: 'ptt',  label: 'Seuil' },
+  { key: 'hfrt', label: 'Aigus' },
 ];
 
 // ── Screen ──────────────────────────────────────────────────────────────────

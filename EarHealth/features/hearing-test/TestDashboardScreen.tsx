@@ -295,6 +295,7 @@ export default function TestDashboardScreen() {
               <Text style={styles.optionTitle}>Test haute fréquence</Text>
               <Text style={styles.optionSub}>Tester la perception des fréquences aiguës.</Text>
             </View>
+            <InfoTooltip content={HAUTES_FREQUENCES_INFO} size={18} />
             <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
           </Pressable>
 
@@ -306,9 +307,10 @@ export default function TestDashboardScreen() {
               <Ionicons name="ear" size={22} color={Colors.primary} />
             </View>
             <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>Pure Tone Threshold Test (PTT)</Text>
-              <Text style={styles.optionSub}>Évaluer le seuil auditif tonal oreille gauche/droite.</Text>
+              <Text style={styles.optionTitle}>Test du seuil auditif</Text>
+              <Text style={styles.optionSub}>Le son le plus faible perçu, pour chaque oreille.</Text>
             </View>
+            <InfoTooltip content={SEUIL_AUDITIF_INFO} size={18} />
             <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
           </Pressable>
         </View>
@@ -330,7 +332,7 @@ export default function TestDashboardScreen() {
             {history.slice(0, 3).map(item => {
               const isPTT = item.testType === 'ptt';
               const subtitle = isPTT
-                ? (item.ptaDb != null ? `Tonal · PTA ${toDisplayDb(item.ptaDb)} dB` : 'Tonal')
+                ? (item.ptaDb != null ? `Seuil auditif · PTA ${toDisplayDb(item.ptaDb)} dB` : 'Seuil auditif')
                 : (item.maxFrequencyHz != null
                     ? `Haute fréquence · ${item.hitCeiling ? '≥ 20' : (item.maxFrequencyHz / 1000).toFixed(1)} kHz`
                     : 'Haute fréquence');

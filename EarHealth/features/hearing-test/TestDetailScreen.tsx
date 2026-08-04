@@ -74,7 +74,7 @@ export default function TestDetailScreen() {
   }, [userId, id]);
 
   const isPTT = row?.test_type === 'ptt';
-  const title = isPTT ? 'Pure Tone Threshold' : 'Test haute fréquence';
+  const title = isPTT ? 'Test du seuil auditif' : 'Test haute fréquence';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>

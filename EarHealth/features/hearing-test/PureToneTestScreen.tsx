@@ -69,7 +69,7 @@ export default function PureToneTestScreen() {
         <Pressable onPress={handleExit} style={styles.backBtn} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
-        <Text style={styles.headerTitle}>Pure Tone Threshold</Text>
+        <Text style={styles.headerTitle}>Test du seuil auditif</Text>
 
       </View>
 
@@ -135,7 +135,7 @@ const IntroView: React.FC<{ audioReady: boolean; onStart: () => void }> = ({
       <Ionicons name="ear" size={36} color={Colors.primary} />
     </View>
 
-    <Text style={styles.introTitle}>Test de seuil auditif</Text>
+    <Text style={styles.introTitle}>Test du seuil auditif</Text>
     <Text style={styles.introSub}>
       Nous allons mesurer votre seuil de perception pour 4 fréquences,
       sur chaque oreille séparément.
