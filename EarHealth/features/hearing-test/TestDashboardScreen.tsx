@@ -5,7 +5,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  Easing,
   Platform,
   Pressable,
   RefreshControl,
@@ -21,15 +20,14 @@ import {
   getCategoryBg,
   getCategoryColor,
   getCategoryLabel,
+  getHearingCategory,
   toDisplayDb,
 } from './constants/hearing-test.constants';
 import { useTestDashboard } from './hooks/useTestDashboard';
-import type { HearingCategory } from './types/hearing-test.types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const HERO_GRADIENT: [string, string, string] = ['#0D8FA5', '#0B7285', '#064E5F'];
-const RING_SIZE = 148;
 
 const TIPS = [
   {
@@ -73,153 +71,66 @@ function formatDate(isoString: string): string {
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
 }
 
-// ── Animated pulse rings ──────────────────────────────────────────────────────
-
-function PulseRings({ active }: { active: boolean }) {
-  const s1 = useRef(new Animated.Value(1)).current;
-  const o1 = useRef(new Animated.Value(0.45)).current;
-  const s2 = useRef(new Animated.Value(1)).current;
-  const o2 = useRef(new Animated.Value(0.25)).current;
-
-  useEffect(() => {
-    if (!active) return;
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.parallel([
-          Animated.timing(s1, { toValue: 1.7, duration: 2000, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-          Animated.timing(o1, { toValue: 0,   duration: 2000, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(s1, { toValue: 1,    duration: 0, useNativeDriver: true }),
-          Animated.timing(o1, { toValue: 0.45, duration: 0, useNativeDriver: true }),
-        ]),
-      ])
-    ).start();
-
-    const t = setTimeout(() => {
-      Animated.loop(
-        Animated.sequence([
-          Animated.parallel([
-            Animated.timing(s2, { toValue: 1.7, duration: 2000, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-            Animated.timing(o2, { toValue: 0,   duration: 2000, useNativeDriver: true }),
-          ]),
-          Animated.parallel([
-            Animated.timing(s2, { toValue: 1,    duration: 0, useNativeDriver: true }),
-            Animated.timing(o2, { toValue: 0.25, duration: 0, useNativeDriver: true }),
-          ]),
-        ])
-      ).start();
-    }, 900);
-
-    return () => {
-      clearTimeout(t);
-      s1.stopAnimation(); o1.stopAnimation();
-      s2.stopAnimation(); o2.stopAnimation();
-    };
-  }, [active]);
-
-  const base = {
-    position: 'absolute' as const,
-    width:  RING_SIZE,
-    height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-  };
-
-  return (
-    <>
-      <Animated.View style={[base, { transform: [{ scale: s1 }], opacity: o1 }]} />
-      <Animated.View style={[base, { transform: [{ scale: s2 }], opacity: o2 }]} />
-    </>
-  );
+// HFRT quality tone (higher frequency = better). Mirrors the tiers in
+// interpretMaxFrequency so the badge colour matches the stored label.
+function hfrtToneColor(maxHz: number): string {
+  if (maxHz >= 15_000) return Colors.success;
+  if (maxHz >= 13_000) return Colors.primary;
+  if (maxHz >= 11_000) return Colors.warning;
+  return Colors.error;
 }
 
-// ── Score count-up ────────────────────────────────────────────────────────────
+// ── Summary card (one per test type) ──────────────────────────────────────────
 
-function useCountUp(target: number | null): number {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    if (target == null) { setVal(0); return; }
-    const steps    = 45;
-    const interval = 1300 / steps;
-    let step = 0;
-    const id = setInterval(() => {
-      step++;
-      const eased = 1 - Math.pow(1 - step / steps, 3);
-      setVal(Math.round(eased * target));
-      if (step >= steps) clearInterval(id);
-    }, interval);
-    return () => clearInterval(id);
-  }, [target]);
-  return val;
-}
-
-// ── Hero section ──────────────────────────────────────────────────────────────
-
-const HeroSection: React.FC<{
-  loading:      boolean;
-  score:        number | null;
-  category:     HearingCategory | null;
-  lastTestDate: Date | null;
-}> = ({ loading, score, category, lastTestDate }) => {
-  const displayScore = useCountUp(score);
-  const hasTest      = score !== null;
-
-  return (
-    <LinearGradient colors={HERO_GRADIENT} style={styles.hero}>
-      <View style={styles.decor1} />
-      <View style={styles.decor2} />
-      <View style={styles.decor3} />
-
-      <View style={styles.heroContent}>
-        {loading ? (
-          <ActivityIndicator size="large" color="rgba(255,255,255,0.85)" />
-        ) : (
-          <>
-            <View style={styles.ringContainer}>
-              <PulseRings active={hasTest} />
-              <View style={[styles.scoreCircle, !hasTest && styles.scoreCircleDashed]}>
-                <Text style={styles.scoreNumber}>{hasTest ? displayScore : '—'}</Text>
-                {hasTest && <Text style={styles.scoreOver}>/100</Text>}
-              </View>
-            </View>
-
-            <View style={styles.heroMeta}>
-              <View style={styles.catBadge}>
-                {hasTest && category && (
-                  <View style={[styles.catDot, { backgroundColor: getCategoryColor(category) }]} />
-                )}
-                <Text style={styles.catBadgeText}>
-                  {hasTest && category ? getCategoryLabel(category) : 'Aucun test réalisé'}
-                </Text>
-              </View>
-              <Text style={styles.heroDate}>
-                {lastTestDate
-                  ? `Dernier test : ${formatDate(lastTestDate.toISOString())}`
-                  : 'Commencez votre premier test auditif'}
-              </Text>
-            </View>
-          </>
-        )}
-      </View>
-    </LinearGradient>
-  );
-};
-
-// ── Stat card ─────────────────────────────────────────────────────────────────
-
-const StatCard: React.FC<{
-  value:       string;
-  label:       string;
+const SummaryCard: React.FC<{
   icon:        React.ComponentProps<typeof Ionicons>['name'];
-  valueColor?: string;
-}> = ({ value, label, icon, valueColor }) => (
-  <View style={styles.statCard}>
-    <Ionicons name={icon} size={17} color={Colors.primary} style={{ marginBottom: 5 }} />
-    <Text style={[styles.statValue, valueColor ? { color: valueColor } : {}]}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
-  </View>
+  title:       string;
+  value:       string | null;      // formatted metric, or null when never tested
+  unit:        string;
+  statusLabel: string | null;
+  accent:      string;             // status colour
+  dateLabel:   string | null;
+  ctaLabel:    string;             // shown in the empty state
+  onPress:     () => void;
+}> = ({ icon, title, value, unit, statusLabel, accent, dateLabel, ctaLabel, onPress }) => (
+  <Pressable
+    onPress={onPress}
+    style={({ pressed }) => [styles.sumCard, pressed && styles.sumCardPressed]}
+  >
+    <View style={styles.sumHeader}>
+      <View style={styles.sumIconRing}>
+        <Ionicons name={icon} size={16} color={Colors.primary} />
+      </View>
+      <Text style={styles.sumTitle} numberOfLines={1}>{title}</Text>
+    </View>
+
+    {value != null ? (
+      <>
+        <View style={styles.sumValueRow}>
+          <Text style={styles.sumValue}>{value}</Text>
+          <Text style={styles.sumUnit}>{unit}</Text>
+        </View>
+        {statusLabel && (
+          <View style={[styles.sumBadge, { backgroundColor: accent + '22' }]}>
+            <View style={[styles.sumDot, { backgroundColor: accent }]} />
+            <Text style={[styles.sumBadgeText, { color: accent }]} numberOfLines={1}>
+              {statusLabel}
+            </Text>
+          </View>
+        )}
+        {dateLabel && <Text style={styles.sumDate}>{dateLabel}</Text>}
+      </>
+    ) : (
+      <>
+        <Text style={styles.sumEmptyValue}>—</Text>
+        <Text style={styles.sumEmptyHint}>Pas encore testé</Text>
+        <View style={styles.sumCta}>
+          <Text style={styles.sumCtaText}>{ctaLabel}</Text>
+          <Ionicons name="arrow-forward" size={13} color={Colors.primary} />
+        </View>
+      </>
+    )}
+  </Pressable>
 );
 
 // ── Tips carousel ─────────────────────────────────────────────────────────────
@@ -272,30 +183,20 @@ const TipsCarousel: React.FC = () => {
 export default function TestDashboardScreen() {
   const router      = useRouter();
   const { profile } = useAuth();
-  const {
-    loading, history, lastScore, avgScore, testCount,
-    trend, lastTestDate, lastCategory, refresh,
-  } = useTestDashboard();
+  const { loading, history, lastTestDate, refresh } = useTestDashboard();
 
   const name     = profile?.username ?? null;
   const greeting = getGreeting();
 
-  const trendIcon: React.ComponentProps<typeof Ionicons>['name'] =
-    trend === 'up'     ? 'trending-up'   :
-    trend === 'down'   ? 'trending-down' :
-    trend === 'stable' ? 'remove'        : 'remove-outline';
+  // Most recent result of each type (history is newest-first).
+  const lastPTT  = history.find(h => h.testType === 'ptt');
+  const lastHFRT = history.find(h => h.testType === 'hfrt');
 
-  const trendColor =
-    trend === 'up'     ? Colors.success       :
-    trend === 'down'   ? Colors.error         :
-    trend === 'stable' ? Colors.textSecondary : Colors.textTertiary;
-
-  const trendValue =
-    trend === 'up' ? '↑' : trend === 'down' ? '↓' : trend === 'stable' ? '→' : '—';
-
-  const trendLabel =
-    trend === 'up' ? 'Progression' : trend === 'down' ? 'Déclin' :
-    trend === 'stable' ? 'Stable'  : 'Tendance';
+  const pttCategory = lastPTT?.ptaDb != null ? getHearingCategory(lastPTT.ptaDb) : null;
+  const hfrtHz      = lastHFRT ? (lastHFRT.hitCeiling ? 20_000 : (lastHFRT.maxFrequencyHz ?? 0)) : 0;
+  const hfrtValue   = lastHFRT
+    ? (lastHFRT.hitCeiling ? '≥ 20' : ((lastHFRT.maxFrequencyHz ?? 0) / 1000).toFixed(1))
+    : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -314,33 +215,59 @@ export default function TestDashboardScreen() {
           <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={Colors.primary} />
         }
       >
-        {/* Hero */}
-        <HeroSection
-          loading={loading}
-          score={lastScore}
-          category={lastCategory}
-          lastTestDate={lastTestDate}
-        />
+        {/* Greeting banner */}
+        <LinearGradient colors={HERO_GRADIENT} style={styles.heroBar}>
+          <View style={styles.decor1} />
+          <View style={styles.decor2} />
+          <Text style={styles.heroGreeting}>
+            {greeting}{name ? `, ${name}` : ''}
+          </Text>
+          <Text style={styles.heroSubtitle}>
+            {lastTestDate
+              ? `Dernier test · ${formatDate(lastTestDate.toISOString())}`
+              : 'Suivez votre audition dans le temps'}
+          </Text>
+        </LinearGradient>
 
-        {/* Floating stats row */}
-        <View style={styles.statsRow}>
-          <StatCard
-            value={loading ? '—' : String(testCount)}
-            label="Tests"
-            icon="clipboard-outline"
-          />
-          <StatCard
-            value={loading || avgScore == null ? '—' : String(avgScore)}
-            label="Score moyen"
-            icon="star-outline"
-          />
-          <StatCard
-            value={loading ? '—' : trendValue}
-            label={loading ? 'Tendance' : trendLabel}
-            icon={trendIcon}
-            valueColor={trend !== 'none' ? trendColor : undefined}
-          />
-        </View>
+        {/* Two summary cards (overlap the banner) */}
+        {loading && history.length === 0 ? (
+          <View style={styles.summaryLoading}>
+            <ActivityIndicator color={Colors.primary} />
+          </View>
+        ) : (
+          <View style={styles.summaryRow}>
+            <SummaryCard
+              icon="ear"
+              title="Seuil auditif"
+              value={lastPTT?.ptaDb != null ? String(toDisplayDb(lastPTT.ptaDb)) : null}
+              unit="dB"
+              statusLabel={pttCategory ? getCategoryLabel(pttCategory) : null}
+              accent={pttCategory ? getCategoryColor(pttCategory) : Colors.primary}
+              dateLabel={lastPTT ? formatDate(lastPTT.createdAt) : null}
+              ctaLabel="Faire le test"
+              onPress={() =>
+                lastPTT
+                  ? router.push(`/test-detail/${lastPTT.id}` as any)
+                  : router.push('/pure-tone-test' as any)
+              }
+            />
+            <SummaryCard
+              icon="pulse"
+              title="Hautes fréquences"
+              value={hfrtValue}
+              unit="kHz"
+              statusLabel={lastHFRT?.interpretation ?? null}
+              accent={lastHFRT ? hfrtToneColor(hfrtHz) : Colors.primary}
+              dateLabel={lastHFRT ? formatDate(lastHFRT.createdAt) : null}
+              ctaLabel="Faire le test"
+              onPress={() =>
+                lastHFRT
+                  ? router.push(`/test-detail/${lastHFRT.id}` as any)
+                  : router.push('/high-frequency-test' as any)
+              }
+            />
+          </View>
+        )}
 
         {/* Test selection */}
         <View style={styles.selectionSection}>
@@ -481,126 +408,90 @@ const styles = StyleSheet.create({
     backgroundColor:   Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
-    
   },
-  greeting: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500', marginBottom: 1 },
   appName:  { fontSize: 22, fontWeight: '800', color: Colors.text, letterSpacing: -0.5 },
-  headerBtn: {
-    padding: 8,
-    borderRadius: 10,
-    backgroundColor: Colors.surfaceSecondary,
-  },
 
-  // Hero
-  hero: {
+  // Greeting banner
+  heroBar: {
     overflow: 'hidden',
-    paddingTop: 36,
+    paddingTop: 22,
     paddingBottom: 44,
+    paddingHorizontal: 20,
   },
   decor1: {
     position: 'absolute', top: -50, right: -50,
-    width: 220, height: 220, borderRadius: 110,
+    width: 200, height: 200, borderRadius: 100,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
   decor2: {
-    position: 'absolute', top: 10, right: 80,
-    width: 130, height: 130, borderRadius: 65,
+    position: 'absolute', top: 20, right: 90,
+    width: 120, height: 120, borderRadius: 60,
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  decor3: {
-    position: 'absolute', bottom: -30, left: -30,
-    width: 160, height: 160, borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  heroContent: { alignItems: 'center', gap: 16 },
+  heroGreeting: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.4 },
+  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: '500', marginTop: 4 },
 
-  ringContainer: {
-    width:          RING_SIZE,
-    height:         RING_SIZE,
-    alignItems:     'center',
-    justifyContent: 'center',
-  },
-  scoreCircle: {
-    width:          RING_SIZE,
-    height:         RING_SIZE,
-    borderRadius:   RING_SIZE / 2,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth:    2.5,
-    borderColor:    'rgba(255,255,255,0.42)',
-    alignItems:     'center',
-    justifyContent: 'center',
-    gap: 0,
-  },
-  scoreCircleDashed: {
-    borderStyle:     'dashed',
-    borderColor:     'rgba(255,255,255,0.28)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  scoreNumber: {
-    fontSize:    50,
-    fontWeight:  '800',
-    color:       '#FFFFFF',
-    letterSpacing: -2,
-    lineHeight:  54,
-  },
-  scoreOver: {
-    fontSize:   13,
-    color:      'rgba(255,255,255,0.6)',
-    fontWeight: '600',
-    marginTop:  -4,
-  },
-
-  heroMeta: { alignItems: 'center', gap: 6 },
-  catBadge: {
-    flexDirection:    'row',
-    alignItems:       'center',
-    gap:              7,
-    backgroundColor:  'rgba(255,255,255,0.18)',
-    paddingHorizontal: 16,
-    paddingVertical:   6,
-    borderRadius:     20,
-  },
-  catDot:      { width: 7, height: 7, borderRadius: 4 },
-  catBadgeText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.2 },
-  heroDate:    { fontSize: 12, color: 'rgba(255,255,255,0.58)', fontWeight: '500' },
-
-  // Stats row (overlaps hero)
-  statsRow: {
-    flexDirection:   'row',
+  // Summary cards (overlap the banner)
+  summaryRow: {
+    flexDirection: 'row',
     marginHorizontal: 16,
-    marginTop:       -28,
-    gap:             10,
-    zIndex:          2,
+    marginTop: -28,
+    gap: 10,
+    zIndex: 2,
   },
-  statCard: {
-    flex:            1,
+  summaryLoading: {
+    marginHorizontal: 16,
+    marginTop: -28,
+    height: 150,
+    borderRadius: 16,
     backgroundColor: Colors.surface,
-    borderRadius:    16,
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    alignItems:      'center',
-    borderWidth:     1,
-    borderColor:     Colors.border,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
+  sumCard: {
+    flex: 1,
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 14,
+    minHeight: 150,
+    borderWidth: 1,
+    borderColor: Colors.border,
     ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.09, shadowRadius: 12 },
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12 },
       android: { elevation: 4 },
     }),
   },
-  statValue: {
-    fontSize:    22,
-    fontWeight:  '800',
-    color:       Colors.text,
-    letterSpacing: -0.5,
-    marginBottom: 2,
+  sumCardPressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
+  sumHeader:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  sumIconRing: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: Colors.primaryLight,
+    alignItems: 'center', justifyContent: 'center',
   },
-  statLabel: {
-    fontSize:       10,
-    color:          Colors.textTertiary,
-    fontWeight:     '600',
-    textAlign:      'center',
-    textTransform:  'uppercase',
-    letterSpacing:  0.3,
+  sumTitle:   { flex: 1, fontSize: 12, fontWeight: '700', color: Colors.textSecondary, letterSpacing: -0.1 },
+  sumValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3, marginTop: 2 },
+  sumValue:   { fontSize: 30, fontWeight: '800', color: Colors.text, letterSpacing: -1 },
+  sumUnit:    { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
+  sumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 10,
   },
+  sumDot:       { width: 6, height: 6, borderRadius: 3 },
+  sumBadgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.2 },
+  sumDate:      { fontSize: 11, color: Colors.textTertiary, fontWeight: '500', marginTop: 8 },
+  sumEmptyValue: { fontSize: 30, fontWeight: '800', color: Colors.borderLight, marginTop: 2 },
+  sumEmptyHint:  { fontSize: 12, color: Colors.textTertiary, fontWeight: '500', marginTop: 6 },
+  sumCta:        { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
+  sumCtaText:    { fontSize: 12, fontWeight: '700', color: Colors.primary },
 
   // Test selection
   selectionSection: {
@@ -651,7 +542,6 @@ const styles = StyleSheet.create({
     marginBottom:   12,
   },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
-  sectionCount: { fontSize: 13, color: Colors.textTertiary, fontWeight: '500' },
   seeAllBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAllText: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
 
