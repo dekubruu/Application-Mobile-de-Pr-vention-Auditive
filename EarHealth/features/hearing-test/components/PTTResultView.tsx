@@ -5,17 +5,18 @@ import Svg, { Circle } from 'react-native-svg';
 import { Colors } from '@/constants/colors';
 import {
   formatFrequency,
-  getCategoryBg,
   getCategoryColor,
   getHearingCapacityPercent,
   getHearingCategory,
   getTestSummary,
   toDisplayDb,
 } from '../constants/hearing-test.constants';
+import type { HearingCategory } from '../types/hearing-test.types';
 import type { PTTEarResult } from '../types/ptt.types';
 import {
   CAPACITE_AUDITIVE_INFO,
   getSeuilLabel,
+  PERTE_AUDITIVE_INFO,
   SEUIL_AUDITIF_INFO,
 } from '../constants/hearing-info';
 import { AudiogramChart } from './AudiogramChart';
@@ -24,11 +25,23 @@ import { InfoTooltip } from './InfoTooltip';
 const EAR_ACCENT: Record<'left' | 'right', string> = { left: '#2A6BC1', right: '#C0392B' };
 const EAR_LABEL:  Record<'left' | 'right', string> = { left: 'Oreille gauche', right: 'Oreille droite' };
 
+// Ordered worst-to-best-scale positions for the severity track (index order
+// drives the segment/badge layout, not the category's own thresholds).
+const SEVERITY_LEVELS: HearingCategory[] = ['normal', 'mild', 'moderate', 'severe'];
+const SEVERITY_CARD_TITLE: Record<HearingCategory, string> = {
+  normal:   'Audition normale',
+  mild:     'Perte auditive légère',
+  moderate: 'Perte auditive modérée',
+  severe:   'Perte auditive significative',
+};
+
 interface PTTResultViewProps {
   earResults: PTTEarResult[];
+  /** Previous PTT test, if any, drawn as a faded/dashed overlay for comparison. */
+  previousEarResults?: PTTEarResult[] | null;
 }
 
-export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
+export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults, previousEarResults }) => {
   const left  = earResults.find(e => e.ear === 'left');
   const right = earResults.find(e => e.ear === 'right');
 
@@ -39,7 +52,6 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
     : 0;
   const category = getHearingCategory(pta4);
   const catColor = getCategoryColor(category);
-  const catBg    = getCategoryBg(category);
   const summary  = getTestSummary(category);
 
   // Imbalance between ears (absolute PTA-4 delta)
@@ -47,6 +59,47 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Severity feedback: where the result sits on the WHO-grade scale */}
+      <View style={styles.infoCard}>
+        <View style={styles.infoCardHeader}>
+          <Text style={styles.infoCardTitle}>{SEVERITY_CARD_TITLE[category]}</Text>
+          <InfoTooltip content={PERTE_AUDITIVE_INFO} size={15} />
+        </View>
+
+        <View style={styles.youRow}>
+          {SEVERITY_LEVELS.map(lvl => (
+            <View key={lvl} style={styles.youSlot}>
+              {lvl === category && (
+                <View style={styles.youBadgeWrap}>
+                  <View style={[styles.youBadge, { backgroundColor: catColor }]}>
+                    <Text style={styles.youBadgeText}>Vous</Text>
+                  </View>
+                  <View style={[styles.youTriangle, { borderTopColor: catColor }]} />
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.segmentRow}>
+          {SEVERITY_LEVELS.map(lvl => (
+            <View
+              key={lvl}
+              style={[styles.segment, { backgroundColor: lvl === category ? catColor : Colors.borderLight }]}
+            />
+          ))}
+        </View>
+
+        <View style={styles.severityEdges}>
+          <Text style={styles.severityEdgeText}>Aucune perte</Text>
+          <Text style={styles.severityEdgeText}>Perte sévère</Text>
+        </View>
+
+        <Text style={styles.severityParagraph}>
+          Seuil auditif moyen de {toDisplayDb(pta4)} dB. {summary.interpretation}
+        </Text>
+      </View>
+
       {/* Seuil auditif — équivalent en volume de conversation, par oreille */}
       <View style={styles.infoCard}>
         <View style={styles.infoCardHeader}>
@@ -90,7 +143,10 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
       {/* Audiogram chart */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Audiogramme</Text>
-        <AudiogramChart earResults={earResults} />
+        <AudiogramChart earResults={earResults} previousEarResults={previousEarResults} />
+        {Platform.OS === 'ios' && (
+          <Text style={styles.chartHint}>Pincez pour zoomer sur le graphique.</Text>
+        )}
       </View>
 
       {/* Detailed table */}
@@ -115,15 +171,6 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
               </View>
             );
           })}
-        </View>
-      </View>
-
-      {/* Recommandation personnalisée (indicative, non-diagnostic) */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recommandation</Text>
-        <View style={[styles.adviceCard, { borderColor: catColor + '40', backgroundColor: catBg }]}>
-          <Ionicons name="bulb-outline" size={18} color={catColor} />
-          <Text style={styles.adviceText}>{summary.interpretation}</Text>
         </View>
       </View>
 
@@ -271,6 +318,28 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
+  // Severity track ("Vous" badge over a 4-step Aucune perte → Perte sévère scale)
+  youRow: { flexDirection: 'row', gap: 4, marginTop: 18 },
+  youSlot: { flex: 1, alignItems: 'center' },
+  youBadgeWrap: { alignItems: 'center' },
+  youBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 },
+  youBadgeText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  youTriangle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    marginTop: -1,
+  },
+  segmentRow: { flexDirection: 'row', gap: 4, marginTop: 6 },
+  segment: { flex: 1, height: 8, borderRadius: 4 },
+  severityEdges: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  severityEdgeText: { fontSize: 11, color: Colors.textTertiary, fontWeight: '600' },
+  severityParagraph: { fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginTop: 16 },
+
   earsRow: { flexDirection: 'row' },
   earCol:  { flex: 1, alignItems: 'center' },
   earColLabel: { fontSize: 11, fontWeight: '500', letterSpacing: 0.2, marginTop: 4 },
@@ -307,6 +376,12 @@ const styles = StyleSheet.create({
   // Sections
   section:      { gap: 8, marginTop: 4 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: Colors.text, marginLeft: 2 },
+  chartHint: {
+    fontSize: 11,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginTop: -2,
+  },
 
   // Detail table
   tableCard: {
@@ -342,16 +417,6 @@ const styles = StyleSheet.create({
   cellEar:    { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2 },
   cellDb:     { fontSize: 16, fontWeight: '800', letterSpacing: -0.3 },
   cellUnreliable: { fontSize: 11, color: Colors.warning, fontWeight: '700' },
-
-  adviceCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  adviceText: { flex: 1, fontSize: 13, color: Colors.text, lineHeight: 19, fontWeight: '500' },
 
   disclaimer: {
     flexDirection: 'row',

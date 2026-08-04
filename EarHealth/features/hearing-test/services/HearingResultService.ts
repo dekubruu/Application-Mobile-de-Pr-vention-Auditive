@@ -9,8 +9,10 @@ import {
   type HearingResilientSaveOutcome,
   type HearingTestType,
   type PendingHearingResult,
+  type PTTPayload,
 } from './hearing.storage';
 import type { FrequencyThreshold } from '../types/hearing-test.types';
+import type { PTTEarResult } from '../types/ptt.types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure helpers (kept from the legacy service — still used by useTestDashboard
@@ -219,4 +221,49 @@ export async function getHearingTestById(
     return null;
   }
   return (data as StoredHearingTestRow | null) ?? null;
+}
+
+// The PTT test taken immediately before `before` (exclusive), for the
+// audiogram's "previous visit" comparison overlay. `before` should be
+// captured client-side at the moment results are shown — since the new
+// test's own `created_at` is assigned server-side on save, it is always
+// later than any client timestamp captured before that save was even
+// requested, so this can't race with the just-completed test.
+export async function getPreviousPTTResult(
+  userId: string,
+  before: string,
+): Promise<StoredHearingTestRow | null> {
+  const { data, error } = await supabase
+    .from('hearing_test_results')
+    .select('id, user_id, created_at, test_type, payload, overall_score')
+    .eq('user_id', userId)
+    .eq('test_type', 'ptt')
+    .lt('created_at', before)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[HearingResultService] fetch previous PTT failed:', error.message);
+    return null;
+  }
+  return (data as StoredHearingTestRow | null) ?? null;
+}
+
+// Stored PTT payload → view-model. The stored payload keeps only {freq, db}
+// per point (no per-frequency reliability/reversals), so history-sourced
+// results are always marked reliable — the "~" flag is only meaningful for
+// a just-completed test.
+export function pttPayloadToEarResults(payload: PTTPayload): PTTEarResult[] {
+  return payload.ears.map(e => ({
+    ear:    e.ear,
+    avgDb:  e.avgDb,
+    thresholds: e.thresholds.map(t => ({
+      frequency:     t.freq,
+      thresholdDb:   t.db,
+      reversals:     0,
+      presentations: 0,
+      reliable:      true,
+    })),
+  }));
 }

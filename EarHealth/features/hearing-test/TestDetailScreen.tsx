@@ -7,31 +7,14 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { HFRTResultView } from './components/HFRTResultView';
 import { PTTResultView } from './components/PTTResultView';
+import { usePreviousPTTResult } from './hooks/usePreviousPTTResult';
 import {
   getHearingTestById,
+  pttPayloadToEarResults,
   type StoredHearingTestRow,
 } from './services/HearingResultService';
 import type { HFRTPayload, PTTPayload } from './services/hearing.storage';
 import type { HFRTResult } from './types/hfrt.types';
-import type { PTTEarResult } from './types/ptt.types';
-
-// ── Payload → view-model adapters ─────────────────────────────────────────────
-// The stored PTT payload keeps only {freq, db} per point (no per-frequency
-// reliability / reversals). We reconstruct the shape PTTResultView needs and
-// mark points reliable (the "~" unreliable flag is unavailable for history).
-function toPTTEarResults(payload: PTTPayload): PTTEarResult[] {
-  return payload.ears.map(e => ({
-    ear:    e.ear,
-    avgDb:  e.avgDb,
-    thresholds: e.thresholds.map(t => ({
-      frequency:     t.freq,
-      thresholdDb:   t.db,
-      reversals:     0,
-      presentations: 0,
-      reliable:      true,
-    })),
-  }));
-}
 
 function toHFRTResult(payload: HFRTPayload): HFRTResult {
   return {
@@ -76,6 +59,8 @@ export default function TestDetailScreen() {
   const isPTT = row?.test_type === 'ptt';
   const title = isPTT ? 'Test du seuil auditif' : 'Test haute fréquence';
 
+  const previousEarResults = usePreviousPTTResult(isPTT && row ? row.created_at : null);
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
@@ -113,7 +98,10 @@ export default function TestDetailScreen() {
           </View>
 
           {isPTT ? (
-            <PTTResultView earResults={toPTTEarResults(row.payload as PTTPayload)} />
+            <PTTResultView
+              earResults={pttPayloadToEarResults(row.payload as PTTPayload)}
+              previousEarResults={previousEarResults}
+            />
           ) : (
             <HFRTResultView
               result={toHFRTResult(row.payload as HFRTPayload)}

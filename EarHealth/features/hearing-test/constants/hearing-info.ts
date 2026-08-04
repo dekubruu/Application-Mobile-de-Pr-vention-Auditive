@@ -50,6 +50,16 @@ export const SEUIL_AUDITIF_INFO: InfoContent = {
   hideDisclaimer: true,
 };
 
+export const PERTE_AUDITIVE_INFO: InfoContent = {
+  title: 'La perte auditive',
+  paragraphs: [
+    "La perte auditive est définie par l'oreille la plus performante.",
+    "En effet, l'asymétrie de l'audition, fréquente chez de nombreux individus, conduit " +
+      "souvent la meilleure oreille à compenser l'autre.",
+  ],
+  link: { label: 'who.int', url: 'https://www.who.int' },
+};
+
 export const CAPACITE_AUDITIVE_INFO: InfoContent = {
   title: 'La capacité auditive',
   paragraphs: [

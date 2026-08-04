@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -11,6 +11,7 @@ import { HeadphoneGateView } from './components/HeadphoneGateView';
 import { PTTResultView } from './components/PTTResultView';
 import { PTTTestingView } from './components/PTTTestingView';
 import { SaveBanner } from './components/SaveBanner';
+import { usePreviousPTTResult } from './hooks/usePreviousPTTResult';
 import { usePureToneTest } from './hooks/usePureToneTest';
 
 export default function PureToneTestScreen() {
@@ -42,6 +43,15 @@ export default function PureToneTestScreen() {
     onHoldStart,
     onHoldEnd,
   } = usePureToneTest({ audio: audioRef, audioReady, userId });
+
+  // Captured once when results first appear — stable across re-renders while
+  // stage stays 'result', and always earlier than the server-assigned
+  // created_at of this very test's own (in-flight) save.
+  const resultShownAt = useMemo(
+    () => (stage === 'result' ? new Date().toISOString() : null),
+    [stage],
+  );
+  const previousEarResults = usePreviousPTTResult(resultShownAt);
 
   const handleExit = () => {
     if (stage === 'testing' || stage === 'between-ears') {
@@ -109,7 +119,7 @@ export default function PureToneTestScreen() {
       {gatePassed && stage === 'result' && (
         <>
           <SaveBanner status={saveStatus} />
-          <PTTResultView earResults={earResults} />
+          <PTTResultView earResults={earResults} previousEarResults={previousEarResults} />
           <View style={styles.footer}>
             <Pressable onPress={reset} style={styles.footerBtnSecondary}>
               <Ionicons name="refresh" size={17} color={Colors.primary} />
