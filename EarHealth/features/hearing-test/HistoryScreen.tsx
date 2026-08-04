@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { EvolutionChart, type EvolutionPoint } from './components/EvolutionChart';
-import { hfrtBadge, pttBadge, toDisplayDb } from './constants/hearing-test.constants';
+import { toDisplayDb } from './constants/hearing-test.constants';
 import { useTestHistory, type HistoryEntry, type HistoryFilter } from './hooks/useTestHistory';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -170,9 +170,6 @@ export default function HistoryScreen() {
 
             {filtered.map(item => {
               const isPTT = item.testType === 'ptt';
-              const badge = isPTT
-                ? pttBadge(item.ptaDb ?? 0)
-                : hfrtBadge(item.hitCeiling ? 20_000 : (item.maxFrequencyHz ?? 0), item.interpretation);
               return (
                 <Pressable
                   key={item.id}
@@ -195,14 +192,7 @@ export default function HistoryScreen() {
                     <Text style={styles.rowSub}>{testLabel(item)}</Text>
                   </View>
 
-                  <View style={styles.rowRight}>
-                    <Text style={styles.rowValue}>{resultLabel(item)}</Text>
-                    <View style={[styles.rowBadge, { backgroundColor: badge.bg }]}>
-                      <Text style={[styles.rowBadgeText, { color: badge.color }]}>
-                        {badge.label}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={styles.rowValue}>{resultLabel(item)}</Text>
 
                   <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} />
                 </Pressable>

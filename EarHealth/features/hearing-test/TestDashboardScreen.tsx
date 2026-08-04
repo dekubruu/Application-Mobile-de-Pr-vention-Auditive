@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import { hfrtBadge, pttBadge, toDisplayDb } from './constants/hearing-test.constants';
+import { toDisplayDb } from './constants/hearing-test.constants';
 import { useTestDashboard } from './hooks/useTestDashboard';
 import { InfoTooltip } from './components/InfoTooltip';
 import {
@@ -79,13 +79,11 @@ const SummaryCard: React.FC<{
   title:       string;
   value:       string | null;      // formatted metric, or null when never tested
   unit:        string;
-  statusLabel: string | null;
-  accent:      string;             // status colour
   dateLabel:   string | null;
   ctaLabel:    string;             // shown in the empty state
   onPress:     () => void;
   info?:       InfoContent;        // optional "ⓘ" explanation
-}> = ({ icon, title, value, unit, statusLabel, accent, dateLabel, ctaLabel, onPress, info }) => (
+}> = ({ icon, title, value, unit, dateLabel, ctaLabel, onPress, info }) => (
   <Pressable
     onPress={onPress}
     style={({ pressed }) => [styles.sumCard, pressed && styles.sumCardPressed]}
@@ -104,14 +102,6 @@ const SummaryCard: React.FC<{
           <Text style={styles.sumValue}>{value}</Text>
           <Text style={styles.sumUnit}>{unit}</Text>
         </View>
-        {statusLabel && (
-          <View style={[styles.sumBadge, { backgroundColor: accent + '22' }]}>
-            <View style={[styles.sumDot, { backgroundColor: accent }]} />
-            <Text style={[styles.sumBadgeText, { color: accent }]} numberOfLines={1}>
-              {statusLabel}
-            </Text>
-          </View>
-        )}
         {dateLabel && <Text style={styles.sumDate}>{dateLabel}</Text>}
       </>
     ) : (
@@ -186,12 +176,9 @@ export default function TestDashboardScreen() {
   const lastPTT  = history.find(h => h.testType === 'ptt');
   const lastHFRT = history.find(h => h.testType === 'hfrt');
 
-  const hfrtHz    = lastHFRT ? (lastHFRT.hitCeiling ? 20_000 : (lastHFRT.maxFrequencyHz ?? 0)) : 0;
   const hfrtValue = lastHFRT
     ? (lastHFRT.hitCeiling ? '≥ 20' : ((lastHFRT.maxFrequencyHz ?? 0) / 1000).toFixed(1))
     : null;
-  const pttB  = lastPTT?.ptaDb != null ? pttBadge(lastPTT.ptaDb) : null;
-  const hfrtB = lastHFRT ? hfrtBadge(hfrtHz, lastHFRT.interpretation) : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -236,8 +223,6 @@ export default function TestDashboardScreen() {
               title="Seuil auditif"
               value={lastPTT?.ptaDb != null ? String(toDisplayDb(lastPTT.ptaDb)) : null}
               unit="dB"
-              statusLabel={pttB?.label ?? null}
-              accent={pttB?.color ?? Colors.primary}
               dateLabel={lastPTT ? formatDate(lastPTT.createdAt) : null}
               ctaLabel="Faire le test"
               info={SEUIL_AUDITIF_INFO}
@@ -252,8 +237,6 @@ export default function TestDashboardScreen() {
               title="Hautes fréquences"
               value={hfrtValue}
               unit="kHz"
-              statusLabel={hfrtB?.label ?? null}
-              accent={hfrtB?.color ?? Colors.primary}
               dateLabel={lastHFRT ? formatDate(lastHFRT.createdAt) : null}
               ctaLabel="Faire le test"
               info={HAUTES_FREQUENCES_INFO}
@@ -323,9 +306,6 @@ export default function TestDashboardScreen() {
                 : (item.maxFrequencyHz != null
                     ? `${item.hitCeiling ? '≥ 20' : (item.maxFrequencyHz / 1000).toFixed(1)} kHz`
                     : '—');
-              const badge = isPTT
-                ? pttBadge(item.ptaDb ?? 0)
-                : hfrtBadge(item.hitCeiling ? 20_000 : (item.maxFrequencyHz ?? 0), item.interpretation);
               return (
                 <Pressable
                   key={item.id}
@@ -348,14 +328,7 @@ export default function TestDashboardScreen() {
                     <Text style={styles.historyMode}>{testName}</Text>
                   </View>
 
-                  <View style={styles.historyRight}>
-                    <Text style={styles.historyValue}>{resultValue}</Text>
-                    <View style={[styles.historyBadge, { backgroundColor: badge.bg }]}>
-                      <Text style={[styles.historyBadgeText, { color: badge.color }]}>
-                        {badge.label}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={styles.historyValue}>{resultValue}</Text>
 
                   <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
                 </Pressable>

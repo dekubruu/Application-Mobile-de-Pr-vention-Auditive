@@ -82,27 +82,45 @@ export function getCategoryBg(cat: HearingCategory): string {
 // own result page.
 export interface HearingBadge { label: string; color: string; bg: string; }
 
-// PTT: clinical dB category (≤20 Normale, ≤40 Légère, ≤60 Modérée, sinon Significative).
+// Explicit, self-describing labels for the home/history badges — a bare
+// "Légère" or "Bonne" is ambiguous out of context. (The result pages keep the
+// short clinical labels, where the surrounding UI already makes them clear.)
+const PTT_STATUS_LABEL: Record<HearingCategory, string> = {
+  normal:   'Audition normale',
+  mild:     'Perte légère',
+  moderate: 'Perte modérée',
+  severe:   'Perte importante',
+};
+
+// PTT: clinical dB category (≤20, ≤40, ≤60, sinon), shown with an explicit label.
 export function pttBadge(avgDb: number): HearingBadge {
   const cat = getHearingCategory(avgDb);
-  return { label: getCategoryLabel(cat), color: getCategoryColor(cat), bg: getCategoryBg(cat) };
+  return { label: PTT_STATUS_LABEL[cat], color: getCategoryColor(cat), bg: getCategoryBg(cat) };
 }
 
-// HFRT: colour from the audible-frequency band; label from the stored
-// interpretation (Excellente / Très bonne / …), with a generic fallback.
+// HFRT: colour from the audible-frequency band; label = the stored quality
+// interpretation prefixed with "Aigus" so it reads on its own.
 export function hfrtFrequencyCategory(maxHz: number): HearingCategory {
   if (maxHz >= 15_000) return 'normal';
   if (maxHz >= 13_000) return 'mild';
   if (maxHz >= 11_000) return 'moderate';
   return 'severe';
 }
+const HFRT_STATUS_LABEL: Record<string, string> = {
+  'Excellente': 'Aigus excellents',
+  'Très bonne': 'Aigus très bons',
+  'Bonne':      'Aigus bons',
+  'Correcte':   'Aigus corrects',
+  'Réduite':    'Aigus réduits',
+  'Limitée':    'Aigus limités',
+};
 export function hfrtBadge(maxHz: number, interpretation?: string): HearingBadge {
   const cat = hfrtFrequencyCategory(maxHz);
-  return {
-    label: interpretation ?? getCategoryLabel(cat),
-    color: getCategoryColor(cat),
-    bg:    getCategoryBg(cat),
-  };
+  let label = 'Perception des aigus';
+  if (interpretation) {
+    label = HFRT_STATUS_LABEL[interpretation] ?? `Aigus ${interpretation.toLowerCase()}`;
+  }
+  return { label, color: getCategoryColor(cat), bg: getCategoryBg(cat) };
 }
 
 export function getTestSummary(cat: HearingCategory): { status: string; interpretation: string } {
