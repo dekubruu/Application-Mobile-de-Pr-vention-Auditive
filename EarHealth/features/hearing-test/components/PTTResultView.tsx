@@ -12,7 +12,9 @@ import {
   toDisplayDb,
 } from '../constants/hearing-test.constants';
 import type { PTTEarResult } from '../types/ptt.types';
+import { PERTE_AUDITIVE_INFO, SEUIL_AUDITIF_INFO } from '../constants/hearing-info';
 import { AudiogramChart } from './AudiogramChart';
+import { InfoTooltip } from './InfoTooltip';
 
 interface PTTResultViewProps {
   earResults: PTTEarResult[];
@@ -40,7 +42,10 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
     <ScrollView contentContainerStyle={styles.container}>
       {/* Hero: PTA-4 + WHO grade */}
       <View style={[styles.heroCard, { borderColor: catColor + '40' }]}>
-        <Text style={styles.heroEyebrow}>PTA-4 (500–4000 Hz)</Text>
+        <View style={styles.eyebrowRow}>
+          <Text style={styles.heroEyebrow}>PTA-4 (500–4000 Hz)</Text>
+          <InfoTooltip content={SEUIL_AUDITIF_INFO} size={15} />
+        </View>
         <View style={styles.heroValueRow}>
           <Text style={[styles.heroValue, { color: catColor }]}>{toDisplayDb(pta4)}</Text>
           <Text style={styles.heroUnit}>dB</Text>
@@ -55,6 +60,10 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
       </View>
 
       {/* Per-ear summary row */}
+      <View style={styles.earsHeader}>
+        <Text style={styles.sectionTitle}>Par oreille</Text>
+        <InfoTooltip content={PERTE_AUDITIVE_INFO} size={15} />
+      </View>
       <View style={styles.earsRow}>
         {left  && <EarSummary ear="left"  result={left}  />}
         {right && <EarSummary ear="right" result={right} />}
@@ -177,6 +186,7 @@ const styles = StyleSheet.create({
       android: { elevation: 3 },
     }),
   },
+  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   heroEyebrow: {
     fontSize: 10,
     fontWeight: '800',
@@ -212,6 +222,7 @@ const styles = StyleSheet.create({
   },
 
   // Ear summary cards
+  earsHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   earsRow: { flexDirection: 'row', gap: 10 },
   earCard: {
     flex: 1,

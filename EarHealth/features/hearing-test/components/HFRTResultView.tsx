@@ -2,9 +2,11 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { HAUTES_FREQUENCES_INFO } from '../constants/hearing-info';
 import { computeAge, interpretForAge } from '../services/HFRTAlgorithm';
 import type { HFRTResult } from '../types/hfrt.types';
 import { HFRTSpectrumChart } from './HFRTSpectrumChart';
+import { InfoTooltip } from './InfoTooltip';
 
 interface HFRTResultViewProps {
   result: HFRTResult;
@@ -52,7 +54,10 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBi
         <Ionicons name="pulse" size={40} color={Colors.primary} />
       </View>
 
-      <Text style={styles.title}>Limite haute détectée</Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.title, styles.titleInRow]}>Limite haute détectée</Text>
+        <InfoTooltip content={HAUTES_FREQUENCES_INFO} size={15} />
+      </View>
 
       <View style={styles.bigValueWrap}>
         {hitCeiling && <Text style={styles.bigPrefix}>≥</Text>}
@@ -136,6 +141,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     marginTop: 14,
   },
+  titleRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
+  titleInRow: { marginTop: 0 },
   bigValueWrap: {
     flexDirection: 'row',
     alignItems: 'baseline',

@@ -24,6 +24,13 @@ import {
   toDisplayDb,
 } from './constants/hearing-test.constants';
 import { useTestDashboard } from './hooks/useTestDashboard';
+import { InfoTooltip } from './components/InfoTooltip';
+import {
+  DISCLAIMER_INFO,
+  HAUTES_FREQUENCES_INFO,
+  SEUIL_AUDITIF_INFO,
+  type InfoContent,
+} from './constants/hearing-info';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -92,7 +99,8 @@ const SummaryCard: React.FC<{
   dateLabel:   string | null;
   ctaLabel:    string;             // shown in the empty state
   onPress:     () => void;
-}> = ({ icon, title, value, unit, statusLabel, accent, dateLabel, ctaLabel, onPress }) => (
+  info?:       InfoContent;        // optional "ⓘ" explanation
+}> = ({ icon, title, value, unit, statusLabel, accent, dateLabel, ctaLabel, onPress, info }) => (
   <Pressable
     onPress={onPress}
     style={({ pressed }) => [styles.sumCard, pressed && styles.sumCardPressed]}
@@ -102,6 +110,7 @@ const SummaryCard: React.FC<{
         <Ionicons name={icon} size={16} color={Colors.primary} />
       </View>
       <Text style={styles.sumTitle} numberOfLines={1}>{title}</Text>
+      {info && <InfoTooltip content={info} size={15} />}
     </View>
 
     {value != null ? (
@@ -245,6 +254,7 @@ export default function TestDashboardScreen() {
               accent={pttCategory ? getCategoryColor(pttCategory) : Colors.primary}
               dateLabel={lastPTT ? formatDate(lastPTT.createdAt) : null}
               ctaLabel="Faire le test"
+              info={SEUIL_AUDITIF_INFO}
               onPress={() =>
                 lastPTT
                   ? router.push(`/test-detail/${lastPTT.id}` as any)
@@ -260,6 +270,7 @@ export default function TestDashboardScreen() {
               accent={lastHFRT ? hfrtToneColor(hfrtHz) : Colors.primary}
               dateLabel={lastHFRT ? formatDate(lastHFRT.createdAt) : null}
               ctaLabel="Faire le test"
+              info={HAUTES_FREQUENCES_INFO}
               onPress={() =>
                 lastHFRT
                   ? router.push(`/test-detail/${lastHFRT.id}` as any)
@@ -385,6 +396,11 @@ export default function TestDashboardScreen() {
           <Text style={styles.disclaimerText}>
             Ce test est un dépistage indicatif sur appareil non calibré. Il ne remplace pas un audiogramme clinique réalisé par un audiologiste.
           </Text>
+        </View>
+
+        {/* Non-liability clause (opens the full educational disclaimer) */}
+        <View style={styles.disclaimerBtnWrap}>
+          <InfoTooltip content={DISCLAIMER_INFO} label="Clause de non-responsabilité" />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -647,4 +663,5 @@ const styles = StyleSheet.create({
     borderRadius:    12,
   },
   disclaimerText: { flex: 1, fontSize: 11, color: Colors.textTertiary, lineHeight: 16 },
+  disclaimerBtnWrap: { alignItems: 'center', marginTop: 16 },
 });
