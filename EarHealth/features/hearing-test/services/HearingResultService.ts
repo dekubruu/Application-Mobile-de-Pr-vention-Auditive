@@ -250,6 +250,29 @@ export async function getPreviousPTTResult(
   return (data as StoredHearingTestRow | null) ?? null;
 }
 
+// Same idea as getPreviousPTTResult, for the HFRT spectrum chart's "previous
+// visit" marker.
+export async function getPreviousHFRTResult(
+  userId: string,
+  before: string,
+): Promise<StoredHearingTestRow | null> {
+  const { data, error } = await supabase
+    .from('hearing_test_results')
+    .select('id, user_id, created_at, test_type, payload, overall_score')
+    .eq('user_id', userId)
+    .eq('test_type', 'hfrt')
+    .lt('created_at', before)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[HearingResultService] fetch previous HFRT failed:', error.message);
+    return null;
+  }
+  return (data as StoredHearingTestRow | null) ?? null;
+}
+
 // Stored PTT payload → view-model. The stored payload keeps only {freq, db}
 // per point (no per-frequency reliability/reversals), so history-sourced
 // results are always marked reliable — the "~" flag is only meaningful for

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -12,6 +12,7 @@ import { HFRTResultView } from './components/HFRTResultView';
 import { HFRTTestingView } from './components/HFRTTestingView';
 import { SaveBanner } from './components/SaveBanner';
 import { useHighFrequencyTest } from './hooks/useHighFrequencyTest';
+import { usePreviousHFRTResult } from './hooks/usePreviousHFRTResult';
 
 export default function HighFrequencyTestScreen() {
   const router = useRouter();
@@ -36,6 +37,15 @@ export default function HighFrequencyTestScreen() {
     onHoldStart,
     onHoldEnd,
   } = useHighFrequencyTest({ audio: audioRef, audioReady, userId, dateOfBirth });
+
+  // Captured once when the result first appears — stable across re-renders
+  // while stage stays 'result', and always earlier than the server-assigned
+  // created_at of this very test's own (in-flight) save.
+  const resultShownAt = useMemo(
+    () => (stage === 'result' ? new Date().toISOString() : null),
+    [stage],
+  );
+  const previousMaxHz = usePreviousHFRTResult(resultShownAt);
 
   const handleExit = () => {
     if (stage === 'testing') {
@@ -92,7 +102,7 @@ export default function HighFrequencyTestScreen() {
       {gatePassed && stage === 'result' && result && (
         <>
           <SaveBanner status={saveStatus} />
-          <HFRTResultView result={result} dateOfBirth={dateOfBirth} />
+          <HFRTResultView result={result} dateOfBirth={dateOfBirth} previousMaxHz={previousMaxHz} />
           <View style={styles.footer}>
             <Pressable onPress={reset} style={styles.footerBtnSecondary}>
               <Ionicons name="refresh" size={17} color={Colors.primary} />

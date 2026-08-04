@@ -7,6 +7,7 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { HFRTResultView } from './components/HFRTResultView';
 import { PTTResultView } from './components/PTTResultView';
+import { usePreviousHFRTResult } from './hooks/usePreviousHFRTResult';
 import { usePreviousPTTResult } from './hooks/usePreviousPTTResult';
 import {
   getHearingTestById,
@@ -56,10 +57,12 @@ export default function TestDetailScreen() {
     return () => { alive = false; };
   }, [userId, id]);
 
-  const isPTT = row?.test_type === 'ptt';
-  const title = isPTT ? 'Test du seuil auditif' : 'Test haute fréquence';
+  const isPTT  = row?.test_type === 'ptt';
+  const isHFRT = row?.test_type === 'hfrt';
+  const title  = isPTT ? 'Test du seuil auditif' : 'Test haute fréquence';
 
   const previousEarResults = usePreviousPTTResult(isPTT && row ? row.created_at : null);
+  const previousMaxHz      = usePreviousHFRTResult(isHFRT && row ? row.created_at : null);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -107,6 +110,7 @@ export default function TestDetailScreen() {
               result={toHFRTResult(row.payload as HFRTPayload)}
               dateOfBirth={dateOfBirth}
               ageAtTest={(row.payload as HFRTPayload).ageAtTest ?? null}
+              previousMaxHz={previousMaxHz}
             />
           )}
         </>

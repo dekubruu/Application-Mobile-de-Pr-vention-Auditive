@@ -1,27 +1,25 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import { HFRT_MAX_FREQ, HFRT_MIN_FREQ } from '../services/HFRTAlgorithm';
+import { HFRT_MAX_FREQ, HFRT_MIN_FREQ, HFRT_QUALITY_BANDS } from '../services/HFRTAlgorithm';
 
 // Horizontal LOG-frequency scale (8 → 20 kHz) with colored "age-bracket" zones,
-// a marker at the user's audible limit, and an optional reference marker for the
-// average expected at the user's age. Built with plain Views (no SVG dependency),
-// consistent with AudiogramChart.
+// a marker at the user's audible limit, an optional reference marker for the
+// average expected at the user's age, and an optional marker for the previous
+// test. Built with plain Views (no SVG dependency), consistent with AudiogramChart.
 //
-// The zones mirror the fixed-threshold quality brackets (worst → best) used by
-// interpretMaxFrequency, so the colored position and the textual label agree.
+// The zones are derived from HFRT_QUALITY_BANDS (the same fixed-threshold
+// quality brackets used by interpretMaxFrequency), so the colored position and
+// the textual label can never disagree.
 
 const CHART_MIN_HZ = HFRT_MIN_FREQ; // 8000
 const CHART_MAX_HZ = HFRT_MAX_FREQ; // 20000
 
-const ZONES: { from: number; to: number; color: string }[] = [
-  { from: 8000,  to: 9000,  color: '#FEE2E2' }, // Limitée
-  { from: 9000,  to: 11000, color: '#FFE4D5' }, // Réduite
-  { from: 11000, to: 13000, color: '#FEF3C7' }, // Correcte
-  { from: 13000, to: 15000, color: '#E0F2F7' }, // Bonne
-  { from: 15000, to: 17000, color: '#CFFAF1' }, // Très bonne
-  { from: 17000, to: 20000, color: '#DCFCE7' }, // Excellente
-];
+const ZONES: { from: number; to: number; color: string }[] = HFRT_QUALITY_BANDS.map((band, i) => ({
+  from:  band.minHz,
+  to:    i < HFRT_QUALITY_BANDS.length - 1 ? HFRT_QUALITY_BANDS[i + 1].minHz : CHART_MAX_HZ,
+  color: band.color,
+}));
 
 const TICKS = [8000, 10000, 12000, 14000, 16000, 18000, 20000];
 
@@ -33,10 +31,12 @@ interface HFRTSpectrumChartProps {
   maxHz:       number;
   hitCeiling:  boolean;
   expectedHz?: number | null;
+  /** Max audible frequency from the previous HFRT test, if any. */
+  previousHz?: number | null;
 }
 
 export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
-  maxHz, hitCeiling, expectedHz,
+  maxHz, hitCeiling, expectedHz, previousHz,
 }) => {
   const [w, setW] = useState(0);
   const [pillW, setPillW] = useState(64); // measured at layout; 64 = sane default
@@ -57,6 +57,7 @@ export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
   const ready     = plotW > 0;
   const markerX   = freqToX(maxHz);
   const expectedX = expectedHz != null ? freqToX(expectedHz) : null;
+  const previousX = previousHz != null ? freqToX(previousHz) : null;
   const kHzLabel  = hitCeiling ? '≥ 20' : (maxHz / 1000).toFixed(1);
   // Center the pill on the marker, clamped to the real measured pill width so a
   // wide label (e.g. "≥ 20 kHz") near the right edge cannot overflow the chart.
@@ -96,6 +97,15 @@ export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
           <View style={[styles.expectedLine, { left: expectedX }]} pointerEvents="none" />
         )}
 
+        {/* Previous test marker — line + hollow ring so it reads as a past
+            data point rather than a computed reference like the age line. */}
+        {ready && previousX != null && (
+          <>
+            <View style={[styles.previousLine, { left: previousX }]} pointerEvents="none" />
+            <View style={[styles.previousDot, { left: previousX - 5 }]} pointerEvents="none" />
+          </>
+        )}
+
         {/* User's result marker */}
         {ready && (
           <>
@@ -115,17 +125,29 @@ export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
         })}
       </View>
 
-      {/* Legend */}
-      <View style={styles.legendRow}>
-        <Text style={styles.legendEnd}>Limite plus basse</Text>
-        {expectedX != null && (
-          <View style={styles.legendMid}>
-            <View style={styles.legendDash} />
-            <Text style={styles.legendMidText}>moyenne de votre âge</Text>
-          </View>
-        )}
-        <Text style={styles.legendEnd}>plus haute</Text>
-      </View>
+      {/* Legend — only the marker legend; no more "Limite plus basse/haute" edge labels */}
+      {(expectedX != null || previousX != null) && (
+        <View style={styles.legendRow}>
+          {previousX != null && (
+            <View style={styles.legendMid}>
+              <View style={styles.legendDot} />
+              <Text style={styles.legendMidText}>test actuel</Text>
+            </View>
+          )}
+          {previousX != null && (
+            <View style={styles.legendMid}>
+              <View style={[styles.legendDot, styles.legendDotHollow]} />
+              <Text style={styles.legendMidText}>test précédent</Text>
+            </View>
+          )}
+          {expectedX != null && (
+            <View style={styles.legendMid}>
+              <View style={styles.legendDash} />
+              <Text style={styles.legendMidText}>moyenne de votre âge</Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 };
@@ -183,8 +205,27 @@ const styles = StyleSheet.create({
     top: 4,
     bottom: 4,
     width: 1.5,
-    backgroundColor: Colors.textSecondary,
-    opacity: 0.55,
+    backgroundColor: Colors.error,
+    opacity: 0.7,
+  },
+  previousLine: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    width: 1.5,
+    backgroundColor: Colors.primary,
+    opacity: 0.4,
+  },
+  previousDot: {
+    position: 'absolute',
+    top: BAND_H / 2 - 5,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+    opacity: 0.75,
   },
 
   ticks: {
@@ -203,12 +244,25 @@ const styles = StyleSheet.create({
 
   legendRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    gap: 10,
     marginTop: 8,
   },
-  legendEnd: { fontSize: 10, color: Colors.textTertiary, fontWeight: '600' },
   legendMid: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  legendDash: { width: 12, height: 1.5, backgroundColor: Colors.textSecondary, opacity: 0.55 },
+  legendDash: { width: 12, height: 1.5, backgroundColor: Colors.error, opacity: 0.7 },
+  // Same filled/hollow shapes as the chart's own markers (markerDot/previousDot),
+  // so the legend reads as "this dot" rather than a separate abstract symbol.
+  legendDot: {
+    width: 10, height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.primaryDark,
+  },
+  legendDotHollow: {
+    backgroundColor: Colors.surface,
+    borderWidth: 2,
+    borderColor: Colors.primary,
+  },
   legendMidText: { fontSize: 10, color: Colors.textSecondary, fontWeight: '600' },
 });

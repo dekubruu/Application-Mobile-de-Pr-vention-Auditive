@@ -2,8 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { getCategoryColor } from '../constants/hearing-test.constants';
 import { HAUTES_FREQUENCES_INFO } from '../constants/hearing-info';
-import { computeAge, interpretForAge } from '../services/HFRTAlgorithm';
+import {
+  computeAge,
+  getHFRTQualityBand,
+  HFRT_QUALITY_BANDS,
+  interpretForAge,
+} from '../services/HFRTAlgorithm';
 import type { HFRTResult } from '../types/hfrt.types';
 import { HFRTSpectrumChart } from './HFRTSpectrumChart';
 import { InfoTooltip } from './InfoTooltip';
@@ -15,9 +21,14 @@ interface HFRTResultViewProps {
    *  current age derived from dateOfBirth — so a historical result keeps the
    *  age-relative interpretation it had the day it was taken. */
   ageAtTest?: number | null;
+  /** Max audible frequency from the previous HFRT test, if any — drawn as a
+   *  marker on the spectrum chart for comparison. */
+  previousMaxHz?: number | null;
 }
 
-export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBirth, ageAtTest }) => {
+export const HFRTResultView: React.FC<HFRTResultViewProps> = ({
+  result, dateOfBirth, ageAtTest, previousMaxHz,
+}) => {
   const { maxAudibleFrequency, reliable, durationMs, hitCeiling, noResponse } = result;
 
   // ── No-response branch: setup problem, not a measurement (not persisted) ──
@@ -47,6 +58,8 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBi
   const age    = ageAtTest ?? computeAge(dateOfBirth);
   const interp = interpretForAge(maxAudibleFrequency, age);
   const kHz    = (maxAudibleFrequency / 1000).toFixed(maxAudibleFrequency >= 10_000 ? 1 : 2);
+  const band     = getHFRTQualityBand(maxAudibleFrequency);
+  const catColor = getCategoryColor(band.category);
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
@@ -54,10 +67,7 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBi
         <Ionicons name="pulse" size={40} color={Colors.primary} />
       </View>
 
-      <View style={styles.titleRow}>
-        <Text style={[styles.title, styles.titleInRow]}>Limite haute détectée</Text>
-        <InfoTooltip content={HAUTES_FREQUENCES_INFO} size={15} />
-      </View>
+      <Text style={styles.title}>Limite haute détectée</Text>
 
       <View style={styles.bigValueWrap}>
         {hitCeiling && <Text style={styles.bigPrefix}>≥</Text>}
@@ -71,11 +81,50 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBi
         </Text>
       )}
 
-      <View style={styles.labelBadge}>
-        <Text style={styles.labelBadgeText}>{interp.label.toUpperCase()}</Text>
-      </View>
+      {/* Severity feedback: where the result sits on the quality scale */}
+      <View style={styles.severityCard}>
+        <View style={styles.severityHeader}>
+          <Text style={styles.severityTitle}>Perception {band.label.toLowerCase()}</Text>
+          <InfoTooltip content={HAUTES_FREQUENCES_INFO} size={15} />
+        </View>
 
-      <Text style={styles.hint}>{interp.hint}</Text>
+        <View style={styles.youRow}>
+          {HFRT_QUALITY_BANDS.map(b => (
+            <View key={b.label} style={styles.youSlot}>
+              {b.label === band.label && (
+                <View style={styles.youBadgeWrap}>
+                  <View style={[styles.youBadge, { backgroundColor: catColor }]}>
+                    <Text style={styles.youBadgeText}>Vous</Text>
+                  </View>
+                  <View style={[styles.youTriangle, { borderTopColor: catColor }]} />
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.segmentRow}>
+          {HFRT_QUALITY_BANDS.map(b => (
+            <View
+              key={b.label}
+              style={[styles.segment, { backgroundColor: b.label === band.label ? catColor : Colors.borderLight }]}
+            />
+          ))}
+        </View>
+
+        <View style={styles.severityEdges}>
+          <Text style={styles.severityEdgeText}>Perception réduite</Text>
+          <Text style={styles.severityEdgeText}>Perception excellente</Text>
+        </View>
+
+        <Text style={styles.severityParagraph}>
+          Vous percevez les sons jusqu’à {hitCeiling ? '≥ 20' : kHz} kHz. {band.hint}
+        </Text>
+
+        {interp.relative != null && (
+          <Text style={styles.severitySubNote}>{interp.label} — {interp.hint}</Text>
+        )}
+      </View>
 
       {/* Frequency scale + age zones */}
       <View style={styles.chartSection}>
@@ -84,6 +133,7 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBi
           maxHz={maxAudibleFrequency}
           hitCeiling={hitCeiling}
           expectedHz={interp.expectedHz}
+          previousHz={previousMaxHz}
         />
       </View>
 
@@ -141,8 +191,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     marginTop: 14,
   },
-  titleRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 14 },
-  titleInRow: { marginTop: 0 },
   bigValueWrap: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -176,19 +224,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '500',
   },
-  labelBadge: {
-    marginTop: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: Colors.primaryLight,
-  },
-  labelBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Colors.primaryDark,
-    letterSpacing: 0.5,
-  },
   hint: {
     fontSize: 13,
     color: Colors.textSecondary,
@@ -196,6 +231,51 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingHorizontal: 18,
     lineHeight: 19,
+  },
+
+  // Severity track ("Vous" badge over the 6-step quality scale)
+  severityCard: {
+    width: '100%',
+    backgroundColor: Colors.surface,
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 },
+    }),
+  },
+  severityHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  severityTitle:  { fontSize: 15, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
+
+  youRow: { flexDirection: 'row', gap: 4, marginTop: 18 },
+  youSlot: { flex: 1, alignItems: 'center' },
+  youBadgeWrap: { alignItems: 'center' },
+  youBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12 },
+  youBadgeText: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  youTriangle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 5,
+    borderRightWidth: 5,
+    borderTopWidth: 6,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    marginTop: -1,
+  },
+  segmentRow: { flexDirection: 'row', gap: 4, marginTop: 6 },
+  segment: { flex: 1, height: 8, borderRadius: 4 },
+  severityEdges: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  severityEdgeText: { fontSize: 11, color: Colors.textTertiary, fontWeight: '600' },
+  severityParagraph: { fontSize: 13, color: Colors.textSecondary, lineHeight: 19, marginTop: 16 },
+  severitySubNote: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    lineHeight: 17,
+    marginTop: 8,
+    fontStyle: 'italic',
   },
 
   chartSection: {

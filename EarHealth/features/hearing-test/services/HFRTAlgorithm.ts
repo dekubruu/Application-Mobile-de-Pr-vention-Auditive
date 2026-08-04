@@ -1,4 +1,5 @@
 import type { HFRTResult, HFRTRuntimeState } from '../types/hfrt.types';
+import type { HearingCategory } from '../types/hearing-test.types';
 
 // ── Tunable parameters ────────────────────────────────────────────────────────
 // High-frequency limit test — the PTT staircase transposed to the FREQUENCY axis:
@@ -125,13 +126,39 @@ export function isAgeModelMeaningful(age: number): boolean {
 }
 
 // ── Interpretation (fixed thresholds — fallback when age is unknown) ──────────
+// Single source of truth for the quality bands: the result page's severity
+// track, the dashboard/history badge colour (hfrtFrequencyCategory), and the
+// spectrum chart's coloured zones all derive from this one ordered list, so
+// they can never silently disagree with each other.
+export interface HFRTQualityBand {
+  minHz:    number;           // inclusive lower bound
+  label:    string;
+  hint:     string;
+  category: HearingCategory;  // shared 4-colour language with PTT
+  color:    string;           // chart zone background
+}
+
+export const HFRT_QUALITY_BANDS: HFRTQualityBand[] = [
+  { minHz: HFRT_MIN_FREQ, label: 'Limitée',    hint: 'Une consultation audiologique est recommandée.', category: 'severe',   color: '#FEE2E2' },
+  { minHz: 9_000,         label: 'Réduite',     hint: 'Limite typique des 50–60 ans.',                  category: 'severe',   color: '#FFE4D5' },
+  { minHz: 11_000,        label: 'Correcte',    hint: 'Limite typique des 40–50 ans.',                  category: 'moderate', color: '#FEF3C7' },
+  { minHz: 13_000,        label: 'Bonne',       hint: 'Limite typique des 30–40 ans.',                  category: 'mild',     color: '#E0F2F7' },
+  { minHz: 15_000,        label: 'Très bonne',  hint: 'Limite typique des < 30 ans.',                   category: 'normal',   color: '#CFFAF1' },
+  { minHz: 17_000,        label: 'Excellente',  hint: 'Limite typique des < 24 ans.',                   category: 'normal',   color: '#DCFCE7' },
+];
+
+// Last band (in ascending minHz order) whose lower bound the frequency clears.
+export function getHFRTQualityBand(maxHz: number): HFRTQualityBand {
+  let band = HFRT_QUALITY_BANDS[0];
+  for (const b of HFRT_QUALITY_BANDS) {
+    if (maxHz >= b.minHz) band = b;
+  }
+  return band;
+}
+
 export function interpretMaxFrequency(maxHz: number): { label: string; hint: string } {
-  if (maxHz >= 17_000) return { label: 'Excellente',  hint: 'Limite typique des < 24 ans.' };
-  if (maxHz >= 15_000) return { label: 'Très bonne',  hint: 'Limite typique des < 30 ans.' };
-  if (maxHz >= 13_000) return { label: 'Bonne',       hint: 'Limite typique des 30–40 ans.' };
-  if (maxHz >= 11_000) return { label: 'Correcte',    hint: 'Limite typique des 40–50 ans.' };
-  if (maxHz >= 9_000)  return { label: 'Réduite',     hint: 'Limite typique des 50–60 ans.' };
-  return { label: 'Limitée', hint: 'Une consultation audiologique est recommandée.' };
+  const { label, hint } = getHFRTQualityBand(maxHz);
+  return { label, hint };
 }
 
 // ── Age-aware interpretation ──────────────────────────────────────────────────

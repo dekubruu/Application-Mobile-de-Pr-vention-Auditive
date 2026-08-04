@@ -1,3 +1,4 @@
+import { getHFRTQualityBand } from '../services/HFRTAlgorithm';
 import type { HearingCategory } from '../types/hearing-test.types';
 
 // ── dB → volume conversion ───────────────────────────────────────────────────
@@ -107,15 +108,14 @@ export function pttBadge(avgDb: number): HearingBadge {
   return { label: PTT_STATUS_LABEL[cat], color: getCategoryColor(cat), bg: getCategoryBg(cat) };
 }
 
-// HFRT: colour from the audible-frequency band; label = the stored quality
-// interpretation prefixed with "Aigus" so it reads on its own.
+// HFRT: colour from the audible-frequency band (single source of truth:
+// HFRT_QUALITY_BANDS in HFRTAlgorithm.ts — also drives the result page's
+// severity track and the spectrum chart's coloured zones); label = the
+// stored quality interpretation prefixed with "Aigus" so it reads on its own.
 export function hfrtFrequencyCategory(maxHz: number): HearingCategory {
-  if (maxHz >= 15_000) return 'normal';
-  if (maxHz >= 13_000) return 'mild';
-  if (maxHz >= 11_000) return 'moderate';
-  return 'severe';
+  return getHFRTQualityBand(maxHz).category;
 }
-const HFRT_STATUS_LABEL: Record<string, string> = {
+export const HFRT_STATUS_LABEL: Record<string, string> = {
   'Excellente': 'Aigus excellents',
   'Très bonne': 'Aigus très bons',
   'Bonne':      'Aigus bons',
