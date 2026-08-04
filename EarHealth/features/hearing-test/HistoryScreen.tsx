@@ -91,7 +91,7 @@ export default function HistoryScreen() {
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Historique des tests</Text>
-        <View style={styles.backBtn} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {/* Filter */}
@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: Colors.surfaceSecondary,
   },
+  headerSpacer: { width: 38, height: 38 },
   headerTitle: {
     flex: 1, textAlign: 'center',
     fontSize: 16, fontWeight: '700',

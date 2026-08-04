@@ -163,6 +163,16 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Données</Text>
           <Pressable
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={() => router.push('/history' as any)}
+          >
+            <View style={styles.rowIcon}>
+              <Ionicons name="time-outline" size={18} color={Colors.textSecondary} />
+            </View>
+            <Text style={styles.rowLabel}>Historique des tests</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             onPress={handleExport}
             disabled={exporting}
           >
