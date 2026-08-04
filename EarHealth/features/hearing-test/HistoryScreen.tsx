@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -45,10 +46,14 @@ function resultLabel(e: HistoryEntry): string {
 // list below is never truncated.
 const CHART_MAX_POINTS = 12;
 
-const FILTERS: { key: HistoryFilter; label: string }[] = [
-  { key: 'all',  label: 'Tous' },
-  { key: 'ptt',  label: 'Seuil' },
-  { key: 'hfrt', label: 'Aigus' },
+const FILTERS: {
+  key:   HistoryFilter;
+  label: string;
+  icon:  React.ComponentProps<typeof Ionicons>['name'];
+}[] = [
+  { key: 'all',  label: 'Tous les tests',  icon: 'apps-outline' },
+  { key: 'ptt',  label: 'Seuil auditif',   icon: 'ear' },
+  { key: 'hfrt', label: 'Haute fréquence', icon: 'pulse' },
 ];
 
 // ── Screen ──────────────────────────────────────────────────────────────────
@@ -57,6 +62,8 @@ export default function HistoryScreen() {
   const router = useRouter();
   const { loading, entries, refresh } = useTestHistory();
   const [filter, setFilter] = useState<HistoryFilter>('all');
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const activeFilter = FILTERS.find(f => f.key === filter) ?? FILTERS[0];
 
   const filtered = useMemo(
     () => (filter === 'all' ? entries : entries.filter(e => e.testType === filter)),
@@ -94,19 +101,55 @@ export default function HistoryScreen() {
       </View>
 
       {/* Filter */}
-      <View style={styles.filterRow}>
-        {FILTERS.map(f => {
-          const active = filter === f.key;
-          return (
-            <Pressable
-              key={f.key}
-              onPress={() => setFilter(f.key)}
-              style={[styles.filterChip, active && styles.filterChipActive]}
-            >
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>{f.label}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.filterWrap}>
+        <View style={styles.filterAnchor}>
+          <Pressable
+            onPress={() => setFilterMenuOpen(o => !o)}
+            style={({ pressed }) => [
+              styles.filterTrigger,
+              filterMenuOpen && styles.filterTriggerOpen,
+              pressed && styles.filterTriggerPressed,
+            ]}
+          >
+            <View style={styles.filterTriggerLeft}>
+              <Ionicons name={activeFilter.icon} size={16} color={Colors.primary} />
+              <Text style={styles.filterTriggerText}>{activeFilter.label}</Text>
+            </View>
+            <Ionicons
+              name={filterMenuOpen ? 'chevron-up' : 'chevron-down'}
+              size={18}
+              color={Colors.textSecondary}
+            />
+          </Pressable>
+
+          {filterMenuOpen && (
+            <View style={styles.filterMenu}>
+              {FILTERS.map((f, i) => {
+                const active = filter === f.key;
+                return (
+                  <Pressable
+                    key={f.key}
+                    onPress={() => { setFilter(f.key); setFilterMenuOpen(false); }}
+                    style={({ pressed }) => [
+                      styles.filterOption,
+                      i > 0 && styles.filterOptionBorder,
+                      active && styles.filterOptionActive,
+                      pressed && styles.filterOptionPressed,
+                    ]}
+                  >
+                    <View style={styles.filterOptionLeft}>
+                      <Ionicons name={f.icon} size={16} color={active ? Colors.primary : Colors.textSecondary} />
+                      <Text style={[styles.filterOptionText, active && styles.filterOptionTextActive]}>
+                        {f.label}
+                      </Text>
+                    </View>
+                    {active && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
       </View>
 
       <ScrollView
@@ -152,7 +195,7 @@ export default function HistoryScreen() {
                 <Ionicons name="information-circle-outline" size={16} color={Colors.textTertiary} />
                 <Text style={styles.chartHintText}>
                   {filter === 'all'
-                    ? 'Choisis « Seuil » ou « Aigus » pour afficher la courbe d’évolution (en dB ou en kHz).'
+                    ? 'Choisis « Seuil auditif » ou « Haute fréquence » pour afficher la courbe d’évolution (en dB ou en kHz).'
                     : 'Au moins deux tests sont nécessaires pour tracer une courbe d’évolution.'}
                 </Text>
               </View>
@@ -240,30 +283,75 @@ const styles = StyleSheet.create({
     color: Colors.text, letterSpacing: -0.2,
   },
 
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  filterWrap: {
     backgroundColor: Colors.surface,
     borderBottomWidth: 0.5,
     borderBottomColor: Colors.border,
+    paddingBottom: 10,
+    zIndex: 20,
   },
-  filterChip: {
-    flex: 1,
+  // Positioning context for the dropdown — it floats over the ScrollView
+  // below instead of pushing it down.
+  filterAnchor: {
+    position: 'relative',
+    marginHorizontal: 16,
+    marginTop: 10,
+  },
+  filterTrigger: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 9,
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     borderRadius: 12,
     backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
+  // Flattens the trigger's bottom corners while open so it visually merges
+  // with the menu right below it, instead of reading as two separate boxes.
+  filterTriggerOpen: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
     borderColor: Colors.primary,
   },
-  filterText:       { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
-  filterTextActive: { color: '#fff' },
+  filterTriggerPressed: { opacity: 0.85 },
+  filterTriggerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  filterTriggerText: { fontSize: 14, fontWeight: '700', color: Colors.text },
+
+  filterMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: Colors.primary,
+    overflow: 'hidden',
+    zIndex: 30,
+    ...Platform.select({
+      ios:     { shadowColor: '#000', shadowOffset: { width: 4, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12 },
+      android: { elevation: 6 },
+    }),
+  },
+  filterOptionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  filterOptionActive: { backgroundColor: Colors.primaryLight },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  filterOptionBorder: { borderTopWidth: 0.5, borderTopColor: Colors.borderLight },
+  filterOptionPressed: { backgroundColor: Colors.surfaceSecondary },
+  filterOptionText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
+  filterOptionTextActive: { color: Colors.primary, fontWeight: '800' },
 
   centerBox: { paddingVertical: 60, alignItems: 'center' },
 
