@@ -76,6 +76,35 @@ export function getCategoryBg(cat: HearingCategory): string {
   }
 }
 
+// ── Test-specific status badge ───────────────────────────────────────────────
+// Replaces the removed unified 0-100 "score": each test is graded on its own,
+// clinically meaningful axis, so the dashboard badge always matches the test's
+// own result page.
+export interface HearingBadge { label: string; color: string; bg: string; }
+
+// PTT: clinical dB category (≤20 Normale, ≤40 Légère, ≤60 Modérée, sinon Significative).
+export function pttBadge(avgDb: number): HearingBadge {
+  const cat = getHearingCategory(avgDb);
+  return { label: getCategoryLabel(cat), color: getCategoryColor(cat), bg: getCategoryBg(cat) };
+}
+
+// HFRT: colour from the audible-frequency band; label from the stored
+// interpretation (Excellente / Très bonne / …), with a generic fallback.
+export function hfrtFrequencyCategory(maxHz: number): HearingCategory {
+  if (maxHz >= 15_000) return 'normal';
+  if (maxHz >= 13_000) return 'mild';
+  if (maxHz >= 11_000) return 'moderate';
+  return 'severe';
+}
+export function hfrtBadge(maxHz: number, interpretation?: string): HearingBadge {
+  const cat = hfrtFrequencyCategory(maxHz);
+  return {
+    label: interpretation ?? getCategoryLabel(cat),
+    color: getCategoryColor(cat),
+    bg:    getCategoryBg(cat),
+  };
+}
+
 export function getTestSummary(cat: HearingCategory): { status: string; interpretation: string } {
   switch (cat) {
     case 'normal':

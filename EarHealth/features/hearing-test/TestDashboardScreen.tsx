@@ -16,13 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
-import {
-  getCategoryBg,
-  getCategoryColor,
-  getCategoryLabel,
-  getHearingCategory,
-  toDisplayDb,
-} from './constants/hearing-test.constants';
+import { hfrtBadge, pttBadge, toDisplayDb } from './constants/hearing-test.constants';
 import { useTestDashboard } from './hooks/useTestDashboard';
 import { InfoTooltip } from './components/InfoTooltip';
 import {
@@ -76,15 +70,6 @@ function formatDate(isoString: string): string {
   if (diff === 1) return 'Hier';
   if (diff < 7)  return `Il y a ${diff} jours`;
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-}
-
-// HFRT quality tone (higher frequency = better). Mirrors the tiers in
-// interpretMaxFrequency so the badge colour matches the stored label.
-function hfrtToneColor(maxHz: number): string {
-  if (maxHz >= 15_000) return Colors.success;
-  if (maxHz >= 13_000) return Colors.primary;
-  if (maxHz >= 11_000) return Colors.warning;
-  return Colors.error;
 }
 
 // ── Summary card (one per test type) ──────────────────────────────────────────
@@ -201,11 +186,12 @@ export default function TestDashboardScreen() {
   const lastPTT  = history.find(h => h.testType === 'ptt');
   const lastHFRT = history.find(h => h.testType === 'hfrt');
 
-  const pttCategory = lastPTT?.ptaDb != null ? getHearingCategory(lastPTT.ptaDb) : null;
-  const hfrtHz      = lastHFRT ? (lastHFRT.hitCeiling ? 20_000 : (lastHFRT.maxFrequencyHz ?? 0)) : 0;
-  const hfrtValue   = lastHFRT
+  const hfrtHz    = lastHFRT ? (lastHFRT.hitCeiling ? 20_000 : (lastHFRT.maxFrequencyHz ?? 0)) : 0;
+  const hfrtValue = lastHFRT
     ? (lastHFRT.hitCeiling ? '≥ 20' : ((lastHFRT.maxFrequencyHz ?? 0) / 1000).toFixed(1))
     : null;
+  const pttB  = lastPTT?.ptaDb != null ? pttBadge(lastPTT.ptaDb) : null;
+  const hfrtB = lastHFRT ? hfrtBadge(hfrtHz, lastHFRT.interpretation) : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -250,8 +236,8 @@ export default function TestDashboardScreen() {
               title="Seuil auditif"
               value={lastPTT?.ptaDb != null ? String(toDisplayDb(lastPTT.ptaDb)) : null}
               unit="dB"
-              statusLabel={pttCategory ? getCategoryLabel(pttCategory) : null}
-              accent={pttCategory ? getCategoryColor(pttCategory) : Colors.primary}
+              statusLabel={pttB?.label ?? null}
+              accent={pttB?.color ?? Colors.primary}
               dateLabel={lastPTT ? formatDate(lastPTT.createdAt) : null}
               ctaLabel="Faire le test"
               info={SEUIL_AUDITIF_INFO}
@@ -266,8 +252,8 @@ export default function TestDashboardScreen() {
               title="Hautes fréquences"
               value={hfrtValue}
               unit="kHz"
-              statusLabel={lastHFRT?.interpretation ?? null}
-              accent={lastHFRT ? hfrtToneColor(hfrtHz) : Colors.primary}
+              statusLabel={hfrtB?.label ?? null}
+              accent={hfrtB?.color ?? Colors.primary}
               dateLabel={lastHFRT ? formatDate(lastHFRT.createdAt) : null}
               ctaLabel="Faire le test"
               info={HAUTES_FREQUENCES_INFO}
@@ -331,11 +317,15 @@ export default function TestDashboardScreen() {
             </View>
             {history.slice(0, 3).map(item => {
               const isPTT = item.testType === 'ptt';
-              const subtitle = isPTT
-                ? (item.ptaDb != null ? `Seuil auditif · PTA ${toDisplayDb(item.ptaDb)} dB` : 'Seuil auditif')
+              const testName = isPTT ? 'Seuil auditif' : 'Hautes fréquences';
+              const resultValue = isPTT
+                ? (item.ptaDb != null ? `${toDisplayDb(item.ptaDb)} dB` : '—')
                 : (item.maxFrequencyHz != null
-                    ? `Haute fréquence · ${item.hitCeiling ? '≥ 20' : (item.maxFrequencyHz / 1000).toFixed(1)} kHz`
-                    : 'Haute fréquence');
+                    ? `${item.hitCeiling ? '≥ 20' : (item.maxFrequencyHz / 1000).toFixed(1)} kHz`
+                    : '—');
+              const badge = isPTT
+                ? pttBadge(item.ptaDb ?? 0)
+                : hfrtBadge(item.hitCeiling ? 20_000 : (item.maxFrequencyHz ?? 0), item.interpretation);
               return (
                 <Pressable
                   key={item.id}
@@ -355,16 +345,14 @@ export default function TestDashboardScreen() {
 
                   <View style={styles.historyInfo}>
                     <Text style={styles.historyDate}>{formatDate(item.createdAt)}</Text>
-                    <Text style={styles.historyMode}>{subtitle}</Text>
+                    <Text style={styles.historyMode}>{testName}</Text>
                   </View>
 
                   <View style={styles.historyRight}>
-                    <Text style={[styles.historyScore, { color: getCategoryColor(item.category) }]}>
-                      {item.score}
-                    </Text>
-                    <View style={[styles.historyBadge, { backgroundColor: getCategoryBg(item.category) }]}>
-                      <Text style={[styles.historyBadgeText, { color: getCategoryColor(item.category) }]}>
-                        {getCategoryLabel(item.category)}
+                    <Text style={styles.historyValue}>{resultValue}</Text>
+                    <View style={[styles.historyBadge, { backgroundColor: badge.bg }]}>
+                      <Text style={[styles.historyBadgeText, { color: badge.color }]}>
+                        {badge.label}
                       </Text>
                     </View>
                   </View>
@@ -587,7 +575,7 @@ const styles = StyleSheet.create({
   historyDate:  { fontSize: 14, fontWeight: '600', color: Colors.text },
   historyMode:  { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
   historyRight: { alignItems: 'flex-end', gap: 5 },
-  historyScore: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
+  historyValue: { fontSize: 15, fontWeight: '800', color: Colors.text, letterSpacing: -0.3 },
   historyBadge: { borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3 },
   historyBadgeText: { fontSize: 10, fontWeight: '700' },
 

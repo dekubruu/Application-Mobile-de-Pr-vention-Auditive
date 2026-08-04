@@ -13,12 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { EvolutionChart, type EvolutionPoint } from './components/EvolutionChart';
-import {
-  getCategoryBg,
-  getCategoryColor,
-  getCategoryLabel,
-  toDisplayDb,
-} from './constants/hearing-test.constants';
+import { hfrtBadge, pttBadge, toDisplayDb } from './constants/hearing-test.constants';
 import { useTestHistory, type HistoryEntry, type HistoryFilter } from './hooks/useTestHistory';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -33,14 +28,17 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-function entrySubtitle(e: HistoryEntry): string {
+function testLabel(e: HistoryEntry): string {
+  return e.testType === 'ptt' ? 'Seuil auditif' : 'Hautes fréquences';
+}
+
+function resultLabel(e: HistoryEntry): string {
   if (e.testType === 'ptt') {
-    return e.ptaDb != null ? `Seuil auditif · PTA ${toDisplayDb(e.ptaDb)} dB` : 'Test du seuil auditif';
+    return e.ptaDb != null ? `${toDisplayDb(e.ptaDb)} dB` : '—';
   }
-  if (e.maxFrequencyHz != null) {
-    return `Haute fréquence · ${e.hitCeiling ? '≥ 20' : (e.maxFrequencyHz / 1000).toFixed(1)} kHz`;
-  }
-  return 'Test haute fréquence';
+  return e.maxFrequencyHz != null
+    ? `${e.hitCeiling ? '≥ 20' : (e.maxFrequencyHz / 1000).toFixed(1)} kHz`
+    : '—';
 }
 
 // Cap the evolution chart to the most recent points for readability. The full
@@ -66,18 +64,19 @@ export default function HistoryScreen() {
   );
 
   // Evolution points: chronological (oldest → newest), capped to the last N.
+  // Only meaningful per test type (dB for PTT, kHz for HFRT) — the "Tous" view
+  // has no common unit, so it shows a hint instead of a curve.
   const { points, unit, betterWhenHigher } = useMemo(() => {
+    if (filter === 'all') {
+      return { points: [] as EvolutionPoint[], unit: '', betterWhenHigher: true };
+    }
     const chrono = [...filtered].reverse().slice(-CHART_MAX_POINTS);
-    const unit = filter === 'ptt' ? 'dB' : filter === 'hfrt' ? 'kHz' : '/100';
+    const unit = filter === 'ptt' ? 'dB' : 'kHz';
     const betterWhenHigher = filter !== 'ptt'; // lower dB = better hearing
-    const points: EvolutionPoint[] = chrono
-      .map(e => {
-        const value =
-          filter === 'ptt'  ? toDisplayDb(e.ptaDb ?? 0)
-          : filter === 'hfrt' ? (e.maxFrequencyHz ?? 0) / 1000
-          : e.score;
-        return { date: e.createdAt, value };
-      });
+    const points: EvolutionPoint[] = chrono.map(e => ({
+      date:  e.createdAt,
+      value: filter === 'ptt' ? toDisplayDb(e.ptaDb ?? 0) : (e.maxFrequencyHz ?? 0) / 1000,
+    }));
     return { points, unit, betterWhenHigher };
   }, [filtered, filter]);
 
@@ -152,7 +151,9 @@ export default function HistoryScreen() {
               <View style={styles.chartHintCard}>
                 <Ionicons name="information-circle-outline" size={16} color={Colors.textTertiary} />
                 <Text style={styles.chartHintText}>
-                  Au moins deux tests sont nécessaires pour tracer une courbe d’évolution.
+                  {filter === 'all'
+                    ? 'Choisis « Seuil » ou « Aigus » pour afficher la courbe d’évolution (en dB ou en kHz).'
+                    : 'Au moins deux tests sont nécessaires pour tracer une courbe d’évolution.'}
                 </Text>
               </View>
             )}
@@ -169,6 +170,9 @@ export default function HistoryScreen() {
 
             {filtered.map(item => {
               const isPTT = item.testType === 'ptt';
+              const badge = isPTT
+                ? pttBadge(item.ptaDb ?? 0)
+                : hfrtBadge(item.hitCeiling ? 20_000 : (item.maxFrequencyHz ?? 0), item.interpretation);
               return (
                 <Pressable
                   key={item.id}
@@ -188,16 +192,14 @@ export default function HistoryScreen() {
 
                   <View style={styles.rowInfo}>
                     <Text style={styles.rowDate}>{formatDate(item.createdAt)}</Text>
-                    <Text style={styles.rowSub}>{entrySubtitle(item)}</Text>
+                    <Text style={styles.rowSub}>{testLabel(item)}</Text>
                   </View>
 
                   <View style={styles.rowRight}>
-                    <Text style={[styles.rowScore, { color: getCategoryColor(item.category) }]}>
-                      {item.score}
-                    </Text>
-                    <View style={[styles.rowBadge, { backgroundColor: getCategoryBg(item.category) }]}>
-                      <Text style={[styles.rowBadgeText, { color: getCategoryColor(item.category) }]}>
-                        {getCategoryLabel(item.category)}
+                    <Text style={styles.rowValue}>{resultLabel(item)}</Text>
+                    <View style={[styles.rowBadge, { backgroundColor: badge.bg }]}>
+                      <Text style={[styles.rowBadgeText, { color: badge.color }]}>
+                        {badge.label}
                       </Text>
                     </View>
                   </View>
@@ -321,7 +323,7 @@ const styles = StyleSheet.create({
   rowDate:  { fontSize: 14, fontWeight: '600', color: Colors.text },
   rowSub:   { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
   rowRight: { alignItems: 'flex-end', gap: 4 },
-  rowScore: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  rowValue: { fontSize: 15, fontWeight: '800', color: Colors.text, letterSpacing: -0.3 },
   rowBadge: { borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
   rowBadgeText: { fontSize: 9, fontWeight: '800' },
 
