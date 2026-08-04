@@ -21,15 +21,20 @@ export const INFO_DISCLAIMER =
   'dépistage sur matériel non calibré et ne pose aucun diagnostic médical. Pour toute ' +
   'évaluation ou décision, consultez un professionnel de santé (médecin ORL, audiologiste).';
 
-export const PERTE_AUDITIVE_INFO: InfoContent = {
-  title: 'La perte auditive',
-  paragraphs: [
-    "La perte auditive est définie par l'oreille la plus performante.",
-    "En effet, l'asymétrie de l'audition, fréquente chez de nombreux individus, conduit " +
-      "souvent la meilleure oreille à compenser l'autre.",
-  ],
-  link: { label: 'who.int', url: 'https://www.who.int' },
-};
+// Loudness-equivalent labels for a displayed (0..100) dB threshold. Shared by
+// SEUIL_AUDITIF_INFO's scale panel and the "Seuil auditif" result card so the
+// two never drift apart.
+const SEUIL_SCALE = [
+  { max: 40,  range: '0–40 dB',   label: 'Chuchotement' },
+  { max: 65,  range: '41–65 dB',  label: 'Conversation normale' },
+  { max: 80,  range: '66–80 dB',  label: 'Voix forte' },
+  { max: 100, range: '81–100 dB', label: 'Cri' },
+];
+
+export function getSeuilLabel(displayDb: number): string {
+  const step = SEUIL_SCALE.find(s => displayDb <= s.max);
+  return (step ?? SEUIL_SCALE[SEUIL_SCALE.length - 1]).label;
+}
 
 export const SEUIL_AUDITIF_INFO: InfoContent = {
   title: 'Le seuil auditif',
@@ -38,15 +43,21 @@ export const SEUIL_AUDITIF_INFO: InfoContent = {
       'moyenne des résultats auditifs de 500 Hz à 4 kHz pour chaque oreille.',
     'Plus le chiffre est bas, plus vous percevez des sons faibles.',
   ],
-  scale: [
-    { range: '0–40 dB',   label: 'Chuchotement' },
-    { range: '41–65 dB',  label: 'Conversation normale' },
-    { range: '66–80 dB',  label: 'Voix forte' },
-    { range: '81–100 dB', label: 'Cri' },
-  ],
+  scale: SEUIL_SCALE.map(({ range, label }) => ({ range, label })),
   link: { label: 'HearingNumber.org', url: 'https://www.hearingnumber.org' },
   // The disclaimer is surfaced via the "Clause de non-responsabilité" button
   // on the home screen instead of being repeated in this panel.
+  hideDisclaimer: true,
+};
+
+export const CAPACITE_AUDITIVE_INFO: InfoContent = {
+  title: 'La capacité auditive',
+  paragraphs: [
+    'Ce pourcentage traduit votre seuil auditif sur une échelle plus intuitive : ' +
+      '100 % correspond au seuil le plus bas mesurable par le test (0 dB), 0 % au seuil ' +
+      'le plus élevé (100 dB).',
+    "Plus le pourcentage est élevé, plus votre capacité auditive est élevée.",
+  ],
   hideDisclaimer: true,
 };
 

@@ -1,20 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { Colors } from '@/constants/colors';
 import {
   formatFrequency,
   getCategoryBg,
   getCategoryColor,
-  getCategoryLabel,
+  getHearingCapacityPercent,
   getHearingCategory,
   getTestSummary,
   toDisplayDb,
 } from '../constants/hearing-test.constants';
 import type { PTTEarResult } from '../types/ptt.types';
-import { PERTE_AUDITIVE_INFO, SEUIL_AUDITIF_INFO } from '../constants/hearing-info';
+import {
+  CAPACITE_AUDITIVE_INFO,
+  getSeuilLabel,
+  SEUIL_AUDITIF_INFO,
+} from '../constants/hearing-info';
 import { AudiogramChart } from './AudiogramChart';
 import { InfoTooltip } from './InfoTooltip';
+
+const EAR_ACCENT: Record<'left' | 'right', string> = { left: '#2A6BC1', right: '#C0392B' };
+const EAR_LABEL:  Record<'left' | 'right', string> = { left: 'Oreille gauche', right: 'Oreille droite' };
 
 interface PTTResultViewProps {
   earResults: PTTEarResult[];
@@ -32,7 +40,6 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
   const category = getHearingCategory(pta4);
   const catColor = getCategoryColor(category);
   const catBg    = getCategoryBg(category);
-  const catLabel = getCategoryLabel(category);
   const summary  = getTestSummary(category);
 
   // Imbalance between ears (absolute PTA-4 delta)
@@ -40,33 +47,34 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* Hero: PTA-4 + WHO grade */}
-      <View style={[styles.heroCard, { borderColor: catColor + '40' }]}>
-        <View style={styles.eyebrowRow}>
-          <Text style={styles.heroEyebrow}>PTA-4 (500–4000 Hz)</Text>
+      {/* Seuil auditif — équivalent en volume de conversation, par oreille */}
+      <View style={styles.infoCard}>
+        <View style={styles.infoCardHeader}>
+          <Text style={styles.infoCardTitle}>Seuil auditif</Text>
           <InfoTooltip content={SEUIL_AUDITIF_INFO} size={15} />
         </View>
-        <View style={styles.heroValueRow}>
-          <Text style={[styles.heroValue, { color: catColor }]}>{toDisplayDb(pta4)}</Text>
-          <Text style={styles.heroUnit}>dB</Text>
-        </View>
-        <View style={[styles.gradeBadge, { backgroundColor: catBg }]}>
-          <View style={[styles.gradeDot, { backgroundColor: catColor }]} />
-          <Text style={[styles.gradeText, { color: catColor }]}>{catLabel}</Text>
-        </View>
-        <Text style={styles.heroSub}>
-          Moyenne tonale (méthode WHO) sur les 4 fréquences testées par oreille.
+        <Text style={styles.infoCardSub}>
+          Quel doit être le volume de la conversation pour que vous puissiez l’entendre.
         </Text>
+        <View style={styles.earsRow}>
+          {left  && <ThresholdColumn ear="left"  db={left.avgDb}  />}
+          {right && <ThresholdColumn ear="right" db={right.avgDb} />}
+        </View>
       </View>
 
-      {/* Per-ear summary row */}
-      <View style={styles.earsHeader}>
-        <Text style={styles.sectionTitle}>Par oreille</Text>
-        <InfoTooltip content={PERTE_AUDITIVE_INFO} size={15} />
-      </View>
-      <View style={styles.earsRow}>
-        {left  && <EarSummary ear="left"  result={left}  />}
-        {right && <EarSummary ear="right" result={right} />}
+      {/* Capacité auditive — même seuil, lu en pourcentage */}
+      <View style={styles.infoCard}>
+        <View style={styles.infoCardHeader}>
+          <Text style={styles.infoCardTitle}>Capacité auditive</Text>
+          <InfoTooltip content={CAPACITE_AUDITIVE_INFO} size={15} />
+        </View>
+        <Text style={styles.infoCardSub}>
+          Plus le pourcentage est élevé, plus votre capacité auditive est élevée.
+        </Text>
+        <View style={styles.earsRow}>
+          {left  && <CapacityColumn ear="left"  db={left.avgDb}  />}
+          {right && <CapacityColumn ear="right" db={right.avgDb} />}
+        </View>
       </View>
 
       {imbalance >= 15 && left && right && (
@@ -130,19 +138,87 @@ export const PTTResultView: React.FC<PTTResultViewProps> = ({ earResults }) => {
   );
 };
 
-const EarSummary: React.FC<{ ear: 'left' | 'right'; result: PTTEarResult }> = ({
-  ear, result,
-}) => {
-  const isRight = ear === 'right';
-  const accent  = isRight ? '#C0392B' : '#2A6BC1';
+// ── Seuil auditif card: dB value + loudness-equivalent label, per ear ────────
+
+const ThresholdColumn: React.FC<{ ear: 'left' | 'right'; db: number }> = ({ ear, db }) => {
+  const accent    = EAR_ACCENT[ear];
+  const displayDb = toDisplayDb(db);
+  const isRight   = ear === 'right';
   return (
-    <View style={[styles.earCard, { borderColor: accent + '33' }]}>
-      <View style={styles.earHeader}>
-        <View style={[styles.earDotMarker, { backgroundColor: accent }]} />
-        <Text style={styles.earTitle}>{isRight ? 'Oreille droite' : 'Oreille gauche'}</Text>
+    <View style={styles.earCol}>
+      <View style={styles.earIconRow}>
+        {!isRight && <SoundWaveIcon color={accent} direction="left" />}
+        <View style={[styles.earIconRing, { backgroundColor: accent + '18' }]}>
+          <Ionicons name="person" size={20} color={accent} />
+        </View>
+        {isRight && <SoundWaveIcon color={accent} direction="right" />}
       </View>
-      <Text style={[styles.earDb, { color: accent }]}>{toDisplayDb(result.avgDb)}</Text>
-      <Text style={styles.earUnit}>dB moyen</Text>
+      <View style={styles.thresholdValueRow}>
+        <Text style={styles.thresholdValue}>{displayDb}</Text>
+        <Text style={styles.thresholdUnit}>dB</Text>
+      </View>
+      <Text style={styles.thresholdLabel}>{getSeuilLabel(displayDb)}</Text>
+      <Text style={[styles.earColLabel, { color: Colors.textSecondary }]}>{EAR_LABEL[ear]}</Text>
+    </View>
+  );
+};
+
+// Concentric arcs pointing away from the person icon — signals which ear
+// (left/right) the reading belongs to, independent of the accent colour.
+const SoundWaveIcon: React.FC<{ color: string; direction: 'left' | 'right' }> = ({
+  color, direction,
+}) => (
+  <Ionicons
+    name="wifi"
+    size={16}
+    color={color}
+    style={direction === 'left' ? styles.soundWaveLeft : styles.soundWaveRight}
+  />
+);
+
+// ── Capacité auditive card: same threshold, read as a percentage ring ────────
+
+const RING_SIZE   = 84;
+const RING_STROKE = 9;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+const CapacityColumn: React.FC<{ ear: 'left' | 'right'; db: number }> = ({ ear, db }) => {
+  const accent  = EAR_ACCENT[ear];
+  const percent = getHearingCapacityPercent(db);
+  const offset  = RING_CIRCUMFERENCE * (1 - percent / 100);
+
+  return (
+    <View style={styles.earCol}>
+      <View style={styles.ring}>
+        <Svg width={RING_SIZE} height={RING_SIZE}>
+          <Circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            stroke={accent + '20'}
+            strokeWidth={RING_STROKE}
+            fill="none"
+          />
+          <Circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            stroke={accent}
+            strokeWidth={RING_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={`${RING_CIRCUMFERENCE} ${RING_CIRCUMFERENCE}`}
+            strokeDashoffset={offset}
+            fill="none"
+            rotation={-90}
+            origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+          />
+        </Svg>
+        <View style={styles.ringCenter}>
+          <Text style={[styles.ringPercent, { color: accent }]}>{percent}%</Text>
+        </View>
+      </View>
+      <Text style={[styles.earColLabel, { color: Colors.textSecondary, marginTop: 10 }]}>{EAR_LABEL[ear]}</Text>
     </View>
   );
 };
@@ -173,74 +249,47 @@ function dbColor(db: number): string {
 const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40, gap: 14 },
 
-  // Hero PTA-4
-  heroCard: {
+  // Seuil auditif / Capacité auditive cards
+  infoCard: {
     backgroundColor: Colors.surface,
     borderRadius: 18,
-    paddingVertical: 22,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    ...Platform.select({
-      ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 12 },
-      android: { elevation: 3 },
-    }),
-  },
-  eyebrowRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  heroEyebrow: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Colors.textTertiary,
-    letterSpacing: 1.2,
-  },
-  heroValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: 6 },
-  heroValue: {
-    fontSize: 68,
-    fontWeight: '800',
-    letterSpacing: -3,
-    lineHeight: 72,
-  },
-  heroUnit:  { fontSize: 20, fontWeight: '700', color: Colors.textSecondary },
-  gradeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  gradeDot:  { width: 8, height: 8, borderRadius: 4 },
-  gradeText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
-  heroSub: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 10,
-    paddingHorizontal: 8,
-    lineHeight: 17,
-  },
-
-  // Ear summary cards
-  earsHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  earsRow: { flexDirection: 'row', gap: 10 },
-  earCard: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    padding: 14,
-    alignItems: 'center',
+    padding: 16,
     borderWidth: 1,
+    borderColor: Colors.border,
     ...Platform.select({
       ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
       android: { elevation: 2 },
     }),
   },
-  earHeader:    { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
-  earDotMarker: { width: 8, height: 8, borderRadius: 4 },
-  earTitle:     { fontSize: 12, fontWeight: '700', color: Colors.textSecondary, letterSpacing: 0.3 },
-  earDb:        { fontSize: 32, fontWeight: '800', letterSpacing: -1, lineHeight: 36 },
-  earUnit:      { fontSize: 10, color: Colors.textTertiary, fontWeight: '600', letterSpacing: 0.4, marginTop: -2 },
+  infoCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  infoCardTitle:  { fontSize: 15, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
+  infoCardSub: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 4,
+    marginBottom: 18,
+  },
+
+  earsRow: { flexDirection: 'row' },
+  earCol:  { flex: 1, alignItems: 'center' },
+  earColLabel: { fontSize: 11, fontWeight: '500', letterSpacing: 0.2, marginTop: 4 },
+
+  earIconRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
+  earIconRing: {
+    width: 40, height: 40, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  soundWaveLeft:  { opacity: 0.85, transform: [{ rotate: '-90deg' }] },
+  soundWaveRight: { opacity: 0.85, transform: [{ rotate: '90deg' }] },
+  thresholdValueRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
+  thresholdValue: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, color: Colors.text },
+  thresholdUnit:  { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  thresholdLabel: { fontSize: 12, color: Colors.textSecondary, fontWeight: '500', marginTop: 1 },
+
+  ring: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
+  ringCenter: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
+  ringPercent: { fontSize: 19, fontWeight: '800', letterSpacing: -0.5 },
 
   // Imbalance
   imbalanceBox: {

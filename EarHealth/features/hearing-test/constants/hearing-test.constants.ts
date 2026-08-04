@@ -37,6 +37,15 @@ export function toDisplayDb(internalDb: number): number {
   return Math.round(internalDb + DB_DISPLAY_OFFSET);
 }
 
+// ── Hearing capacity (%) ──────────────────────────────────────────────────────
+// A simple, transparent inverse of the displayed 0..100 dB scale: 0 dB (best
+// threshold on this scale) reads as 100% capacity, 100 dB reads as 0%. Not a
+// clinical percentile — purely a friendlier restatement of the same threshold
+// already shown in dB, clamped to stay in [0, 100] for out-of-range thresholds.
+export function getHearingCapacityPercent(internalDb: number): number {
+  return Math.round(Math.min(100, Math.max(0, 100 - toDisplayDb(internalDb))));
+}
+
 // ── Hearing category thresholds (relative dB scale, device-dependent) ────────
 export const DB_NORMAL_MAX   = 20;
 export const DB_MILD_MAX     = 40;
