@@ -176,14 +176,11 @@ export default function HistoryScreen() {
                   onPress={() => openDetail(item.id)}
                   style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 >
-                  <View style={[
-                    styles.rowIcon,
-                    { backgroundColor: isPTT ? Colors.primaryLight : Colors.warningLight },
-                  ]}>
+                  <View style={styles.rowIcon}>
                     <Ionicons
                       name={isPTT ? 'ear' : 'pulse'}
                       size={17}
-                      color={isPTT ? Colors.primary : Colors.warning}
+                      color={Colors.primary}
                     />
                   </View>
 
@@ -308,6 +305,7 @@ const styles = StyleSheet.create({
     width: 42, height: 42,
     borderRadius: 21,
     alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.primaryLight,
   },
   rowInfo:  { flex: 1 },
   rowDate:  { fontSize: 14, fontWeight: '600', color: Colors.text },

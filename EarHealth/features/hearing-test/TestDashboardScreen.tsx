@@ -312,14 +312,11 @@ export default function TestDashboardScreen() {
                   onPress={() => router.push(`/test-detail/${item.id}` as any)}
                   style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]}
                 >
-                  <View style={[
-                    styles.historyModeIcon,
-                    { backgroundColor: isPTT ? Colors.primaryLight : Colors.warningLight },
-                  ]}>
+                  <View style={styles.historyModeIcon}>
                     <Ionicons
                       name={isPTT ? 'ear' : 'pulse'}
                       size={17}
-                      color={isPTT ? Colors.primary : Colors.warning}
+                      color={Colors.primary}
                     />
                   </View>
 
@@ -543,6 +540,7 @@ const styles = StyleSheet.create({
     borderRadius:   21,
     alignItems:     'center',
     justifyContent: 'center',
+    backgroundColor: Colors.primaryLight,
   },
   historyInfo:  { flex: 1 },
   historyDate:  { fontSize: 14, fontWeight: '600', color: Colors.text },
