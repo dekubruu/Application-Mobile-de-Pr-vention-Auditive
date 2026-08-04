@@ -9,9 +9,13 @@ import { HFRTSpectrumChart } from './HFRTSpectrumChart';
 interface HFRTResultViewProps {
   result: HFRTResult;
   dateOfBirth?: string | null;
+  /** Age captured at test time. When provided, it takes precedence over the
+   *  current age derived from dateOfBirth — so a historical result keeps the
+   *  age-relative interpretation it had the day it was taken. */
+  ageAtTest?: number | null;
 }
 
-export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBirth }) => {
+export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBirth, ageAtTest }) => {
   const { maxAudibleFrequency, reliable, durationMs, hitCeiling, noResponse } = result;
 
   // ── No-response branch: setup problem, not a measurement (not persisted) ──
@@ -38,7 +42,7 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({ result, dateOfBi
     );
   }
 
-  const age    = computeAge(dateOfBirth);
+  const age    = ageAtTest ?? computeAge(dateOfBirth);
   const interp = interpretForAge(maxAudibleFrequency, age);
   const kHz    = (maxAudibleFrequency / 1000).toFixed(maxAudibleFrequency >= 10_000 ? 1 : 2);
 

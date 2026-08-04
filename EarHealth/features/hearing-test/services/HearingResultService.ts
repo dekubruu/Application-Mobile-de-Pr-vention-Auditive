@@ -199,3 +199,24 @@ export async function getHearingTestHistory(
   }
   return (data ?? []) as StoredHearingTestRow[];
 }
+
+// Single row by id. Scoped to the owner (RLS also enforces this server-side).
+// Returns null on absence or error — the detail screen renders a "not found"
+// state rather than throwing.
+export async function getHearingTestById(
+  userId: string,
+  id:     string,
+): Promise<StoredHearingTestRow | null> {
+  const { data, error } = await supabase
+    .from('hearing_test_results')
+    .select('id, user_id, created_at, test_type, payload, overall_score')
+    .eq('user_id', userId)
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[HearingResultService] fetch by id failed:', error.message);
+    return null;
+  }
+  return (data as StoredHearingTestRow | null) ?? null;
+}

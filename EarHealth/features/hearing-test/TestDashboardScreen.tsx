@@ -380,7 +380,14 @@ export default function TestDashboardScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Derniers tests</Text>
-              <Text style={styles.sectionCount}>{testCount} au total</Text>
+              <Pressable
+                onPress={() => router.push('/history' as any)}
+                hitSlop={8}
+                style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.6 }]}
+              >
+                <Text style={styles.seeAllText}>Voir tout</Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+              </Pressable>
             </View>
             {history.slice(0, 3).map(item => {
               const isPTT = item.testType === 'ptt';
@@ -390,7 +397,11 @@ export default function TestDashboardScreen() {
                     ? `Haute fréquence · ${item.hitCeiling ? '≥ 20' : (item.maxFrequencyHz / 1000).toFixed(1)} kHz`
                     : 'Haute fréquence');
               return (
-                <View key={item.id} style={styles.historyItem}>
+                <Pressable
+                  key={item.id}
+                  onPress={() => router.push(`/test-detail/${item.id}` as any)}
+                  style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]}
+                >
                   <View style={[
                     styles.historyModeIcon,
                     { backgroundColor: isPTT ? Colors.primaryLight : Colors.warningLight },
@@ -417,7 +428,9 @@ export default function TestDashboardScreen() {
                       </Text>
                     </View>
                   </View>
-                </View>
+
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+                </Pressable>
               );
             })}
           </View>
@@ -639,6 +652,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
   sectionCount: { fontSize: 13, color: Colors.textTertiary, fontWeight: '500' },
+  seeAllBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  seeAllText: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
 
   // History
   historyItem: {
@@ -652,6 +667,7 @@ const styles = StyleSheet.create({
     borderWidth:     1,
     borderColor:     Colors.border,
   },
+  historyItemPressed: { opacity: 0.9, transform: [{ scale: 0.995 }] },
   historyModeIcon: {
     width:          42,
     height:         42,

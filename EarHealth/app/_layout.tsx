@@ -16,13 +16,15 @@ function NavigationGuard() {
     const seg0          = (segments as string[])[0];
     const inAuth        = seg0 === '(auth)';
     const inTabs        = seg0 === '(tabs)';
-    // Legacy 'hearing-test' route was removed; only the new PTT/HFRT routes remain.
-    const inHearingTest = seg0 === 'high-frequency-test'
-                       || seg0 === 'pure-tone-test';
+    // Standalone (non-tab) authenticated routes reachable from the tabs.
+    // Legacy 'hearing-test' route was removed; the PTT/HFRT test screens plus
+    // the history list and per-test detail live at the app root.
+    const STANDALONE_ROUTES = ['high-frequency-test', 'pure-tone-test', 'history', 'test-detail'];
+    const inStandalone  = STANDALONE_ROUTES.includes(seg0);
 
     if (!session && !inAuth) {
       router.replace('/(auth)/login' as any);
-    } else if (session && !inTabs && !inHearingTest) {
+    } else if (session && !inTabs && !inStandalone) {
       router.replace('/(tabs)/test' as any);
     }
   }, [rootNavState?.key, session, loading, segments]);
