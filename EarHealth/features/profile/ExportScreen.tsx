@@ -22,10 +22,25 @@ const TEST_TYPE_OPTIONS: TestTypeOption[] = [
   { key: 'hfrt', icon: 'pulse', label: 'Hautes fréquences', sub: 'Résultats du test haute fréquence' },
 ];
 
+type PeriodMode = 'all' | 'custom';
+
+interface PeriodOption {
+  key:   PeriodMode;
+  icon:  React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  sub:   string;
+}
+
+const PERIOD_OPTIONS: PeriodOption[] = [
+  { key: 'all',    icon: 'infinite-outline', label: 'Toute la période',      sub: "Exporter tout l'historique disponible" },
+  { key: 'custom', icon: 'calendar-outline', label: 'Période personnalisée', sub: 'Choisir une date de début et de fin' },
+];
+
 export default function ExportScreen() {
   const { session, profile } = useAuth();
 
   const [testTypes, setTestTypes] = useState<Set<HearingTestType>>(new Set(['ptt', 'hfrt']));
+  const [periodMode, setPeriodMode]   = useState<PeriodMode>('all');
   const [startDate, setStartDate]     = useState<Date>(new Date());
   const [startTouched, setStartTouched] = useState(false);
   const [endDate, setEndDate]         = useState<Date>(new Date());
@@ -51,8 +66,8 @@ export default function ExportScreen() {
         profile?.username ?? 'Utilisateur',
         {
           testTypes: Array.from(testTypes),
-          startDate: startTouched ? startDate : null,
-          endDate:   endTouched ? endDate : null,
+          startDate: periodMode === 'custom' && startTouched ? startDate : null,
+          endDate:   periodMode === 'custom' && endTouched ? endDate : null,
         },
       );
       if (result.status === 'empty') {
@@ -70,7 +85,7 @@ export default function ExportScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+        <Pressable onPress={() => router.replace('/(tabs)/profile' as any)} style={styles.backBtn} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Exporter mes résultats</Text>
@@ -78,11 +93,6 @@ export default function ExportScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.intro}>
-          Génère un PDF de tes résultats de tests auditifs, avec le même code couleur et le même
-          graphique d’évolution que dans l’app.
-        </Text>
-
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Quels tests ?</Text>
           {TEST_TYPE_OPTIONS.map(opt => {
@@ -112,30 +122,45 @@ export default function ExportScreen() {
 
         <Card style={styles.section}>
           <Text style={styles.sectionTitle}>Sur quelle période ?</Text>
-          <Text style={styles.sectionHint}>Laisse vide pour exporter tout l’historique disponible.</Text>
+          {PERIOD_OPTIONS.map(opt => {
+            const active = periodMode === opt.key;
+            return (
+              <Pressable
+                key={opt.key}
+                onPress={() => setPeriodMode(opt.key)}
+                style={({ pressed }) => [styles.typeRow, active && styles.typeRowActive, pressed && styles.typeRowPressed]}
+              >
+                <View style={[styles.typeIconRing, active && styles.typeIconRingActive]}>
+                  <Ionicons name={opt.icon} size={20} color={active ? '#fff' : Colors.primary} />
+                </View>
+                <View style={styles.typeText}>
+                  <Text style={styles.typeLabel}>{opt.label}</Text>
+                  <Text style={styles.typeSub}>{opt.sub}</Text>
+                </View>
+                <Ionicons
+                  name={active ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={22}
+                  color={active ? Colors.primary : Colors.textTertiary}
+                />
+              </Pressable>
+            );
+          })}
 
-          <DateField
-            label="Date de début"
-            value={startDate}
-            onChange={(d) => { setStartDate(d); setStartTouched(true); }}
-            maximumDate={endTouched ? endDate : new Date()}
-          />
-          {startTouched && (
-            <Pressable onPress={() => setStartTouched(false)} hitSlop={8} style={styles.clearBtn}>
-              <Text style={styles.clearText}>Effacer la date de début</Text>
-            </Pressable>
-          )}
-
-          <DateField
-            label="Date de fin"
-            value={endDate}
-            onChange={(d) => { setEndDate(d); setEndTouched(true); }}
-            maximumDate={new Date()}
-          />
-          {endTouched && (
-            <Pressable onPress={() => setEndTouched(false)} hitSlop={8} style={styles.clearBtn}>
-              <Text style={styles.clearText}>Effacer la date de fin</Text>
-            </Pressable>
+          {periodMode === 'custom' && (
+            <View style={styles.customDates}>
+              <DateField
+                label="Date de début"
+                value={startDate}
+                onChange={(d) => { setStartDate(d); setStartTouched(true); }}
+                maximumDate={endTouched ? endDate : new Date()}
+              />
+              <DateField
+                label="Date de fin"
+                value={endDate}
+                onChange={(d) => { setEndDate(d); setEndTouched(true); }}
+                maximumDate={new Date()}
+              />
+            </View>
           )}
         </Card>
 
@@ -191,16 +216,9 @@ const styles = StyleSheet.create({
   },
 
   content: { padding: 16, paddingBottom: 48 },
-  intro: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    lineHeight: 19,
-    marginBottom: 16,
-  },
 
   section: { marginBottom: 14 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text, marginBottom: 4 },
-  sectionHint: { fontSize: 12, color: Colors.textTertiary, marginBottom: 14 },
 
   typeRow: {
     flexDirection: 'row',
@@ -224,8 +242,7 @@ const styles = StyleSheet.create({
   typeLabel: { fontSize: 14, fontWeight: '700', color: Colors.text },
   typeSub: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
 
-  clearBtn: { alignSelf: 'flex-start', marginTop: -10, marginBottom: 10 },
-  clearText: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
+  customDates: { marginTop: 12 },
 
   generateBtn: {
     flexDirection: 'row',
