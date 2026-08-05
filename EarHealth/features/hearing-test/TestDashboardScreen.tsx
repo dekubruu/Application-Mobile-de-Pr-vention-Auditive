@@ -233,32 +233,36 @@ export default function TestDashboardScreen() {
 
           <Pressable
             onPress={() => router.push('/high-frequency-test' as any)}
-            style={({ pressed }) => [styles.optionCard, pressed && styles.optionCardPressed]}
+            style={({ pressed }) => [styles.optionWrapper, pressed && styles.optionPressed]}
           >
-            <View style={styles.optionIconRing}>
-              <Ionicons name="pulse" size={22} color={Colors.primary} />
-            </View>
-            <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>Test haute fréquence</Text>
-              <Text style={styles.optionSub}>Tester la perception des fréquences aiguës.</Text>
-            </View>
-            <InfoTooltip content={HAUTES_FREQUENCES_INFO} size={18} />
-            <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+            <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCard}>
+              <View style={styles.optionIconRing}>
+                <Ionicons name="pulse" size={22} color={Colors.primary} />
+              </View>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>Test haute fréquence</Text>
+                <Text style={styles.optionSub}>Tester la perception des fréquences aiguës.</Text>
+              </View>
+              <InfoTooltip content={HAUTES_FREQUENCES_INFO} size={18} color="rgba(255,255,255,0.8)" />
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+            </LinearGradient>
           </Pressable>
 
           <Pressable
             onPress={() => router.push('/pure-tone-test' as any)}
-            style={({ pressed }) => [styles.optionCard, pressed && styles.optionCardPressed]}
+            style={({ pressed }) => [styles.optionWrapper, pressed && styles.optionPressed]}
           >
-            <View style={styles.optionIconRing}>
-              <Ionicons name="ear" size={22} color={Colors.primary} />
-            </View>
-            <View style={styles.optionText}>
-              <Text style={styles.optionTitle}>Test du seuil auditif</Text>
-              <Text style={styles.optionSub}>Le son le plus faible perçu, pour chaque oreille.</Text>
-            </View>
-            <InfoTooltip content={SEUIL_AUDITIF_INFO} size={18} />
-            <Ionicons name="chevron-forward" size={20} color={Colors.textTertiary} />
+            <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCard}>
+              <View style={styles.optionIconRing}>
+                <Ionicons name="ear" size={22} color={Colors.primary} />
+              </View>
+              <View style={styles.optionText}>
+                <Text style={styles.optionTitle}>Test du seuil auditif</Text>
+                <Text style={styles.optionSub}>Le son le plus faible perçu, pour chaque oreille.</Text>
+              </View>
+              <InfoTooltip content={SEUIL_AUDITIF_INFO} size={18} color="rgba(255,255,255,0.8)" />
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
+            </LinearGradient>
           </Pressable>
         </View>
 
@@ -457,32 +461,32 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     marginBottom:  4,
   },
-  optionCard: {
-    flexDirection:   'row',
-    alignItems:      'center',
-    backgroundColor: Colors.surface,
-    borderRadius:    16,
-    padding:         16,
-    gap:             14,
-    borderWidth:     1,
-    borderColor:     Colors.border,
+  optionWrapper: {
+    borderRadius: 16,
+    overflow:     'hidden',
     ...Platform.select({
       ios:     { shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.06, shadowRadius: 10 },
       android: { elevation: 3 },
     }),
   },
-  optionCardPressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
+  optionPressed: { opacity: 0.9 },
+  optionCard: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    padding:       16,
+    gap:           14,
+  },
   optionIconRing: {
     width:          46,
     height:         46,
     borderRadius:   23,
-    backgroundColor: Colors.primaryLight,
+    backgroundColor: '#FFFFFF',
     alignItems:     'center',
     justifyContent: 'center',
   },
   optionText:  { flex: 1 },
-  optionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
-  optionSub:   { fontSize: 12, color: Colors.textSecondary, marginTop: 3, fontWeight: '500', lineHeight: 17 },
+  optionTitle: { fontSize: 15, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 },
+  optionSub:   { fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 3, fontWeight: '500', lineHeight: 17 },
 
   // Section
   section:       { marginHorizontal: 16, marginTop: 24 },
