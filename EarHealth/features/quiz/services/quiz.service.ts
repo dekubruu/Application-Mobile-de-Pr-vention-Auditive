@@ -285,6 +285,7 @@ export const quizService = {
         totalPoints:     0,
         accuracyPct:     0,
         bestSessionPct:  0,
+        bestSessionPoints: 0,
         lastSessionDate: null,
       };
     }
@@ -293,6 +294,7 @@ export const quizService = {
     let totalCorrect  = 0;
     let totalPoints   = 0;
     let bestPct       = 0;
+    let bestPoints    = 0;
 
     for (const r of rows) {
       totalAnswered += r.total_questions;
@@ -302,6 +304,7 @@ export const quizService = {
         ? Math.round((r.correct_count / r.total_questions) * 100)
         : 0;
       if (pct > bestPct) bestPct = pct;
+      if (r.points_earned > bestPoints) bestPoints = r.points_earned;
     }
 
     return {
@@ -313,6 +316,7 @@ export const quizService = {
         ? Math.round((totalCorrect / totalAnswered) * 100)
         : 0,
       bestSessionPct:  bestPct,
+      bestSessionPoints: bestPoints,
       lastSessionDate: rows[0].created_at,
     };
   },

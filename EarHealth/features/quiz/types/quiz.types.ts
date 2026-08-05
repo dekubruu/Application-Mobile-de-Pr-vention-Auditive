@@ -73,6 +73,7 @@ export interface QuizStats {
   totalPoints:      number;     // sum of points_earned across sessions
   accuracyPct:      number;     // 0–100, integer
   bestSessionPct:   number;     // best single-session accuracy 0–100
+  bestSessionPoints: number;    // best single-session points_earned
   lastSessionDate:  string | null; // ISO
 }
 

@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/features/auth/hooks/useAuth';
 import { toDisplayDb } from './constants/hearing-test.constants';
 import { useTestDashboard } from './hooks/useTestDashboard';
 import { InfoTooltip } from './components/InfoTooltip';
@@ -54,13 +53,6 @@ const TIPS = [
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function getGreeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return 'Bonjour';
-  if (h < 18) return 'Bon après-midi';
-  return 'Bonsoir';
-}
 
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
@@ -165,12 +157,8 @@ const TipsCarousel: React.FC = () => {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TestDashboardScreen() {
-  const router      = useRouter();
-  const { profile } = useAuth();
-  const { loading, history, lastTestDate, refresh } = useTestDashboard();
-
-  const name     = profile?.username ?? null;
-  const greeting = getGreeting();
+  const router = useRouter();
+  const { loading, history, refresh } = useTestDashboard();
 
   // Most recent result of each type (history is newest-first).
   const lastPTT  = history.find(h => h.testType === 'ptt');
@@ -184,9 +172,7 @@ export default function TestDashboardScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.appName}>HearSafe</Text>
-        </View>
+        <Text style={styles.appName}>Test</Text>
       </View>
 
       <ScrollView
@@ -201,14 +187,6 @@ export default function TestDashboardScreen() {
         <LinearGradient colors={HERO_GRADIENT} style={styles.heroBar}>
           <View style={styles.decor1} />
           <View style={styles.decor2} />
-          <Text style={styles.heroGreeting}>
-            {greeting}{name ? `, ${name}` : ''}
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            {lastTestDate
-              ? `Dernier test · ${formatDate(lastTestDate.toISOString())}`
-              : 'Suivez votre audition dans le temps'}
-          </Text>
         </LinearGradient>
 
         {/* Two summary cards (overlap the banner) */}
@@ -376,9 +354,8 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection:     'row',
     alignItems:        'center',
-    justifyContent:    'space-between',
+    justifyContent:    'center',
     paddingHorizontal: 20,
     paddingVertical:   14,
     backgroundColor:   Colors.surface,
@@ -404,8 +381,6 @@ const styles = StyleSheet.create({
     width: 120, height: 120, borderRadius: 60,
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  heroGreeting: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.4 },
-  heroSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.72)', fontWeight: '500', marginTop: 4 },
 
   // Summary cards (overlap the banner)
   summaryRow: {

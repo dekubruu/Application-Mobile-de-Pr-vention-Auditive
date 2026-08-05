@@ -76,53 +76,18 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
           color={Colors.primary}
         />
         <StatCard
-          icon="help-circle"
-          value={loading ? '—' : String(stats?.totalAnswered ?? 0)}
-          label="Questions"
-          color={Colors.primary}
-        />
-        <StatCard
           icon="checkmark-circle"
-          value={loading ? '—' : String(stats?.totalCorrect ?? 0)}
+          value={loading ? '—' : `${stats?.totalCorrect ?? 0}/${stats?.totalAnswered ?? 0}`}
           label="Bonnes rép."
           color={Colors.success}
         />
+        <StatCard
+          icon="trophy"
+          value={loading ? '—' : String(stats?.bestSessionPoints ?? 0)}
+          label="Meilleur score"
+          color={Colors.warning}
+        />
       </View>
-
-      {/* Accuracy + best */}
-      {!loading && stats && stats.sessionsPlayed > 0 && (
-        <View style={styles.section}>
-          <View style={styles.metricCard}>
-            <View style={styles.metricLeft}>
-              <Text style={styles.metricLabel}>Précision globale</Text>
-              <Text style={styles.metricValue}>
-                {stats.accuracyPct}<Text style={styles.metricUnit}>%</Text>
-              </Text>
-            </View>
-            <View style={styles.metricBarTrack}>
-              <View style={[
-                styles.metricBarFill,
-                { width: `${Math.min(100, stats.accuracyPct)}%`, backgroundColor: accuracyColor(stats.accuracyPct) },
-              ]} />
-            </View>
-          </View>
-
-          <View style={styles.metricCard}>
-            <View style={styles.metricLeft}>
-              <Text style={styles.metricLabel}>Meilleure session</Text>
-              <Text style={styles.metricValue}>
-                {stats.bestSessionPct}<Text style={styles.metricUnit}>%</Text>
-              </Text>
-            </View>
-            <View style={styles.metricBarTrack}>
-              <View style={[
-                styles.metricBarFill,
-                { width: `${Math.min(100, stats.bestSessionPct)}%`, backgroundColor: Colors.warning },
-              ]} />
-            </View>
-          </View>
-        </View>
-      )}
 
       {error && (
         <View style={styles.errorBox}>
@@ -186,13 +151,6 @@ const StatCard: React.FC<{
     <Text style={styles.statLabel}>{label}</Text>
   </View>
 );
-
-function accuracyColor(pct: number): string {
-  if (pct >= 80) return Colors.success;
-  if (pct >= 60) return Colors.primary;
-  if (pct >= 40) return Colors.warning;
-  return Colors.error;
-}
 
 function difficultyLabel(d: DifficultyChoice): string {
   switch (d) {
@@ -289,47 +247,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     textTransform: 'uppercase',
   },
-
-  // Metrics
-  section: {
-    marginHorizontal: 16,
-    marginTop: 18,
-    gap: 10,
-  },
-  metricCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  metricLeft: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'baseline',
-    marginBottom: 8,
-  },
-  metricLabel: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  metricValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Colors.text,
-    letterSpacing: -0.5,
-  },
-  metricUnit: { fontSize: 14, fontWeight: '700', color: Colors.textSecondary },
-  metricBarTrack: {
-    width: '100%',
-    height: 6,
-    backgroundColor: Colors.borderLight,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  metricBarFill: { height: '100%', borderRadius: 3 },
 
   // Error
   errorBox: {

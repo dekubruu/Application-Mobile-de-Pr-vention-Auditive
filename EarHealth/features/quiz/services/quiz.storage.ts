@@ -182,6 +182,7 @@ function isQuizStats(v: unknown): v is QuizStats {
     typeof o.totalPoints     === 'number' &&
     typeof o.accuracyPct     === 'number' &&
     typeof o.bestSessionPct  === 'number' &&
+    typeof o.bestSessionPoints === 'number' &&
     (o.lastSessionDate === null || typeof o.lastSessionDate === 'string')
   );
 }
