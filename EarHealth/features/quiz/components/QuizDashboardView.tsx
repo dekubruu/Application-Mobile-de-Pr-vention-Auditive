@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import type { QuizSessionRow, QuizStats } from '../types/quiz.types';
 import { QuizDifficultyPicker, type DifficultyChoice } from './QuizDifficultyPicker';
 
@@ -18,9 +19,9 @@ interface QuizDashboardViewProps {
   historyLoading: boolean;
 }
 
-function accuracyColor(pct: number): string {
+function accuracyColor(pct: number, primary: string): string {
   if (pct >= 80) return Colors.success;
-  if (pct >= 60) return Colors.primary;
+  if (pct >= 60) return primary;
   if (pct >= 40) return Colors.warning;
   return Colors.error;
 }
@@ -38,6 +39,7 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
   stats, loading, error, difficulty, onChangeDifficulty, onStart, onRefresh,
   history, historyLoading,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const empty = !loading && (!stats || stats.sessionsPlayed === 0);
 
   return (
@@ -48,7 +50,7 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
     >
       {/* Hero: total points */}
       <LinearGradient
-        colors={['#0D8FA5', '#0B7285', '#064E5F']}
+        colors={tierColors.gradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.hero}
@@ -83,7 +85,7 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
           icon="game-controller"
           value={loading ? '—' : String(stats?.sessionsPlayed ?? 0)}
           label="Sessions"
-          color={Colors.primary}
+          color={tierColors.primary}
         />
         <StatCard
           icon="checkmark-circle"
@@ -111,9 +113,9 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
 
       {/* Empty state hint */}
       {empty && !error && (
-        <View style={styles.emptyBox}>
-          <Ionicons name="bulb-outline" size={16} color={Colors.primaryDark} />
-          <Text style={styles.emptyText}>
+        <View style={[styles.emptyBox, { backgroundColor: tierColors.primaryLight }]}>
+          <Ionicons name="bulb-outline" size={16} color={tierColors.primaryDark} />
+          <Text style={[styles.emptyText, { color: tierColors.primaryDark }]}>
             Chaque quiz contient 10 questions sur la santé auditive. Gagnez des points selon la difficulté.
           </Text>
         </View>
@@ -125,16 +127,20 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
       {/* Start CTA */}
       <Pressable
         onPress={onStart}
-        style={({ pressed }) => [styles.ctaWrapper, pressed && styles.ctaPressed]}
+        style={({ pressed }) => [
+          styles.ctaWrapper,
+          { shadowColor: tierColors.primaryDark },
+          pressed && styles.ctaPressed,
+        ]}
       >
         <LinearGradient
-          colors={['#0D8FA5', '#0B7285', '#09616F']}
+          colors={tierColors.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.cta}
         >
           <View style={styles.ctaIconRing}>
-            <Ionicons name="play" size={22} color={Colors.primary} />
+            <Ionicons name="play" size={22} color={tierColors.primary} />
           </View>
           <View style={styles.ctaText}>
             <Text style={styles.ctaTitle}>Lancer un quiz</Text>
@@ -149,13 +155,13 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
         <View style={styles.historySection}>
           <Text style={styles.historyTitle}>Derniers quiz</Text>
           {historyLoading && history.length === 0 ? (
-            <ActivityIndicator color={Colors.primary} style={styles.historyLoading} />
+            <ActivityIndicator color={tierColors.primary} style={styles.historyLoading} />
           ) : (
             history.map(item => {
               const pct = item.total_questions > 0
                 ? Math.round((item.correct_count / item.total_questions) * 100)
                 : 0;
-              const color = accuracyColor(pct);
+              const color = accuracyColor(pct, tierColors.primary);
               return (
                 <View key={item.id} style={styles.historyRow}>
                   <View style={[styles.historyIcon, { backgroundColor: color + '18' }]}>
@@ -349,13 +355,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 14,
     padding: 12,
-    backgroundColor: Colors.primaryLight,
     borderRadius: 12,
   },
   emptyText: {
     flex: 1,
     fontSize: 12,
-    color: Colors.primaryDark,
     fontWeight: '500',
     lineHeight: 18,
   },
@@ -367,7 +371,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     ...Platform.select({
-      ios:     { shadowColor: Colors.primaryDark, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
+      ios:     { shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
       android: { elevation: 6 },
     }),
   },

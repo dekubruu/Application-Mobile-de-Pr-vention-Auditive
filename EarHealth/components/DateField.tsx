@@ -3,6 +3,7 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import React, { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
 interface DateFieldProps {
   label: string;
@@ -19,6 +20,7 @@ export const DateField: React.FC<DateFieldProps> = ({
   error,
   maximumDate,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const [showPicker, setShowPicker] = useState(false);
 
   const handleChange = (_: DateTimePickerEvent, date?: Date) => {
@@ -67,7 +69,7 @@ export const DateField: React.FC<DateFieldProps> = ({
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>{label}</Text>
               <Pressable onPress={() => setShowPicker(false)} hitSlop={8}>
-                <Text style={styles.sheetDone}>Confirmer</Text>
+                <Text style={[styles.sheetDone, { color: tierColors.primary }]}>Confirmer</Text>
               </Pressable>
             </View>
             <DateTimePicker
@@ -112,7 +114,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sheetTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
-  sheetDone: { fontSize: 16, fontWeight: '700', color: Colors.primary },
+  sheetDone: { fontSize: 16, fontWeight: '700' },
   datePicker: { width: '100%' },
   errorInline: { fontSize: 12, color: Colors.error, marginTop: 6, fontWeight: '500' },
 });

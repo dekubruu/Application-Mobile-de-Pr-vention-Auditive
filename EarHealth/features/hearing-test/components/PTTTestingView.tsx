@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { formatFrequency, toDisplayDb } from '../constants/hearing-test.constants';
 import { PTT_FREQUENCIES } from '../services/PTTAlgorithm';
 import type { PTTEar, PTTFrequencyResult } from '../types/ptt.types';
@@ -34,19 +35,20 @@ export const PTTTestingView: React.FC<PTTTestingViewProps> = ({
   onHoldStart,
   onHoldEnd,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const doneSet = new Set(completedFreqs.map(c => c.frequency));
 
   return (
     <View style={styles.container}>
       {/* Ear & progress */}
       <View style={styles.topBar}>
-        <View style={styles.earBadge}>
+        <View style={[styles.earBadge, { backgroundColor: tierColors.primaryLight }]}>
           <Ionicons
             name={ear === 'left' ? 'arrow-back' : 'arrow-forward'}
             size={12}
-            color={Colors.primary}
+            color={tierColors.primary}
           />
-          <Text style={styles.earBadgeText}>
+          <Text style={[styles.earBadgeText, { color: tierColors.primary }]}>
             OREILLE {ear === 'left' ? 'GAUCHE' : 'DROITE'}
           </Text>
         </View>
@@ -65,7 +67,7 @@ export const PTTTestingView: React.FC<PTTTestingViewProps> = ({
               <View style={[
                 styles.dot,
                 isDone    && styles.dotDone,
-                isCurrent && styles.dotCurrent,
+                isCurrent && { backgroundColor: tierColors.primary },
               ]}>
                 {isDone    && <Ionicons name="checkmark" size={11} color="#fff" />}
                 {isCurrent && <View style={styles.dotPulse} />}
@@ -92,7 +94,12 @@ export const PTTTestingView: React.FC<PTTTestingViewProps> = ({
         <View style={styles.divider} />
         <View style={styles.reading}>
           <Text style={styles.readingLabel}>PULSE</Text>
-          <View style={[styles.pulseDot, isPulsing ? styles.pulseDotOn : styles.pulseDotOff]} />
+          <View
+            style={[
+              styles.pulseDot,
+              isPulsing ? { backgroundColor: tierColors.primary } : styles.pulseDotOff,
+            ]}
+          />
           <Text style={styles.readingUnit}>{isPulsing ? 'on' : 'off'}</Text>
         </View>
       </View>
@@ -131,7 +138,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.primaryLight,
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -139,7 +145,6 @@ const styles = StyleSheet.create({
   earBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primary,
     letterSpacing: 0.6,
   },
   progress: {
@@ -165,7 +170,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dotDone:    { backgroundColor: Colors.success },
-  dotCurrent: { backgroundColor: Colors.primary },
   dotPulse: {
     width: 9, height: 9,
     borderRadius: 5,
@@ -224,7 +228,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 4,
   },
-  pulseDotOn:  { backgroundColor: Colors.primary },
   pulseDotOff: { backgroundColor: Colors.borderLight, borderWidth: 1, borderColor: Colors.border },
 
   warnBox: {

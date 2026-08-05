@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
 interface QuizErrorViewProps {
   message: string;
@@ -11,31 +12,38 @@ interface QuizErrorViewProps {
 
 export const QuizErrorView: React.FC<QuizErrorViewProps> = ({
   message, onRetry, onBack,
-}) => (
-  <View style={styles.container}>
-    <View style={styles.iconRing}>
-      <Ionicons name="alert-circle-outline" size={42} color={Colors.warning} />
-    </View>
-    <Text style={styles.title}>Impossible de charger le quiz</Text>
-    <Text style={styles.sub}>{message}</Text>
+}) => {
+  const { colors: tierColors } = useThemeColors();
+  return (
+    <View style={styles.container}>
+      <View style={styles.iconRing}>
+        <Ionicons name="alert-circle-outline" size={42} color={Colors.warning} />
+      </View>
+      <Text style={styles.title}>Impossible de charger le quiz</Text>
+      <Text style={styles.sub}>{message}</Text>
 
-    <View style={styles.actions}>
-      <Pressable
-        onPress={onRetry}
-        style={({ pressed }) => [styles.btnPrimary, pressed && styles.pressed]}
-      >
-        <Ionicons name="refresh" size={18} color="#FFFFFF" />
-        <Text style={styles.btnPrimaryText}>Réessayer</Text>
-      </Pressable>
-      <Pressable
-        onPress={onBack}
-        style={({ pressed }) => [styles.btnSecondary, pressed && styles.pressed]}
-      >
-        <Text style={styles.btnSecondaryText}>Retour</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        <Pressable
+          onPress={onRetry}
+          style={({ pressed }) => [
+            styles.btnPrimary,
+            { backgroundColor: tierColors.primary, shadowColor: tierColors.primaryDark },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons name="refresh" size={18} color="#FFFFFF" />
+          <Text style={styles.btnPrimaryText}>Réessayer</Text>
+        </Pressable>
+        <Pressable
+          onPress={onBack}
+          style={({ pressed }) => [styles.btnSecondary, pressed && styles.pressed]}
+        >
+          <Text style={styles.btnSecondaryText}>Retour</Text>
+        </Pressable>
+      </View>
     </View>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -81,9 +89,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
     ...Platform.select({
-      ios:     { shadowColor: Colors.primaryDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
+      ios:     { shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
       android: { elevation: 4 },
     }),
   },

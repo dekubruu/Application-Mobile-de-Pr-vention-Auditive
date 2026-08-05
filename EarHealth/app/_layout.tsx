@@ -1,6 +1,7 @@
 import { Slot, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import { useEffect } from 'react';
 import { AuthProvider, useAuthContext } from '@/features/auth/context/AuthContext';
+import { ThemeProvider } from '@/features/theme/ThemeContext';
 
 function NavigationGuard() {
   const { session, loading } = useAuthContext();
@@ -35,7 +36,9 @@ function NavigationGuard() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <NavigationGuard />
+      <ThemeProvider>
+        <NavigationGuard />
+      </ThemeProvider>
     </AuthProvider>
   );
 }

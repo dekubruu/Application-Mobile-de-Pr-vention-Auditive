@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { toDisplayDb } from './constants/hearing-test.constants';
 import { useTestDashboard } from './hooks/useTestDashboard';
 import { InfoTooltip } from './components/InfoTooltip';
@@ -26,8 +27,6 @@ import {
 } from './constants/hearing-info';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const HERO_GRADIENT: [string, string, string] = ['#0D8FA5', '#0B7285', '#064E5F'];
 
 const TIPS = [
   {
@@ -75,43 +74,47 @@ const SummaryCard: React.FC<{
   ctaLabel:    string;             // shown in the empty state
   onPress:     () => void;
   info?:       InfoContent;        // optional "ⓘ" explanation
-}> = ({ icon, title, value, unit, dateLabel, ctaLabel, onPress, info }) => (
-  <Pressable
-    onPress={onPress}
-    style={({ pressed }) => [styles.sumCard, pressed && styles.sumCardPressed]}
-  >
-    <View style={styles.sumHeader}>
-      <View style={styles.sumIconRing}>
-        <Ionicons name={icon} size={16} color={Colors.primary} />
+}> = ({ icon, title, value, unit, dateLabel, ctaLabel, onPress, info }) => {
+  const { colors: tierColors } = useThemeColors();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.sumCard, pressed && styles.sumCardPressed]}
+    >
+      <View style={styles.sumHeader}>
+        <View style={[styles.sumIconRing, { backgroundColor: tierColors.primaryLight }]}>
+          <Ionicons name={icon} size={16} color={tierColors.primary} />
+        </View>
+        <Text style={styles.sumTitle} numberOfLines={1}>{title}</Text>
+        {info && <InfoTooltip content={info} size={15} />}
       </View>
-      <Text style={styles.sumTitle} numberOfLines={1}>{title}</Text>
-      {info && <InfoTooltip content={info} size={15} />}
-    </View>
 
-    {value != null ? (
-      <>
-        <View style={styles.sumValueRow}>
-          <Text style={styles.sumValue}>{value}</Text>
-          <Text style={styles.sumUnit}>{unit}</Text>
-        </View>
-        {dateLabel && <Text style={styles.sumDate}>{dateLabel}</Text>}
-      </>
-    ) : (
-      <>
-        <Text style={styles.sumEmptyValue}>—</Text>
-        <Text style={styles.sumEmptyHint}>Pas encore testé</Text>
-        <View style={styles.sumCta}>
-          <Text style={styles.sumCtaText}>{ctaLabel}</Text>
-          <Ionicons name="arrow-forward" size={13} color={Colors.primary} />
-        </View>
-      </>
-    )}
-  </Pressable>
-);
+      {value != null ? (
+        <>
+          <View style={styles.sumValueRow}>
+            <Text style={styles.sumValue}>{value}</Text>
+            <Text style={styles.sumUnit}>{unit}</Text>
+          </View>
+          {dateLabel && <Text style={styles.sumDate}>{dateLabel}</Text>}
+        </>
+      ) : (
+        <>
+          <Text style={styles.sumEmptyValue}>—</Text>
+          <Text style={styles.sumEmptyHint}>Pas encore testé</Text>
+          <View style={styles.sumCta}>
+            <Text style={[styles.sumCtaText, { color: tierColors.primary }]}>{ctaLabel}</Text>
+            <Ionicons name="arrow-forward" size={13} color={tierColors.primary} />
+          </View>
+        </>
+      )}
+    </Pressable>
+  );
+};
 
 // ── Tips carousel ─────────────────────────────────────────────────────────────
 
 const TipsCarousel: React.FC = () => {
+  const { colors: tierColors } = useThemeColors();
   const [idx, setIdx]   = useState(0);
   const opacity         = useRef(new Animated.Value(1)).current;
 
@@ -130,24 +133,27 @@ const TipsCarousel: React.FC = () => {
   const tip = TIPS[idx];
 
   return (
-    <View style={styles.tipsCard}>
+    <View style={[styles.tipsCard, { backgroundColor: tierColors.primaryLight }]}>
       <View style={styles.tipsHeader}>
         <View style={styles.tipsIconRing}>
-          <Ionicons name="bulb" size={15} color={Colors.primary} />
+          <Ionicons name="bulb" size={15} color={tierColors.primary} />
         </View>
-        <Text style={styles.tipsSectionTitle}>Le saviez-vous ?</Text>
+        <Text style={[styles.tipsSectionTitle, { color: tierColors.primaryDark }]}>Le saviez-vous ?</Text>
         <View style={styles.tipsDots}>
           {TIPS.map((_, i) => (
-            <View key={i} style={[styles.tipsDot, i === idx && styles.tipsDotActive]} />
+            <View
+              key={i}
+              style={[styles.tipsDot, { backgroundColor: tierColors.primary }, i === idx && styles.tipsDotActive]}
+            />
           ))}
         </View>
       </View>
       <Animated.View style={{ opacity }}>
         <View style={styles.tipContent}>
           <View style={styles.tipIconWrap}>
-            <Ionicons name={tip.icon} size={20} color={Colors.primary} />
+            <Ionicons name={tip.icon} size={20} color={tierColors.primary} />
           </View>
-          <Text style={styles.tipText}>{tip.text}</Text>
+          <Text style={[styles.tipText, { color: tierColors.primaryDark }]}>{tip.text}</Text>
         </View>
       </Animated.View>
     </View>
@@ -158,6 +164,7 @@ const TipsCarousel: React.FC = () => {
 
 export default function TestDashboardScreen() {
   const router = useRouter();
+  const { colors: tierColors } = useThemeColors();
   const { loading, history, refresh } = useTestDashboard();
 
   // Most recent result of each type (history is newest-first).
@@ -180,11 +187,11 @@ export default function TestDashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={Colors.primary} />
+          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={tierColors.primary} />
         }
       >
         {/* Greeting banner */}
-        <LinearGradient colors={HERO_GRADIENT} style={styles.heroBar}>
+        <LinearGradient colors={tierColors.gradient} style={styles.heroBar}>
           <View style={styles.decor1} />
           <View style={styles.decor2} />
         </LinearGradient>
@@ -192,7 +199,7 @@ export default function TestDashboardScreen() {
         {/* Two summary cards (overlap the banner) */}
         {loading && history.length === 0 ? (
           <View style={styles.summaryLoading}>
-            <ActivityIndicator color={Colors.primary} />
+            <ActivityIndicator color={tierColors.primary} />
           </View>
         ) : (
           <View style={styles.summaryRow}>
@@ -235,9 +242,9 @@ export default function TestDashboardScreen() {
             onPress={() => router.push('/high-frequency-test' as any)}
             style={({ pressed }) => [styles.optionWrapper, pressed && styles.optionPressed]}
           >
-            <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCard}>
+            <LinearGradient colors={tierColors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCard}>
               <View style={styles.optionIconRing}>
-                <Ionicons name="pulse" size={22} color={Colors.primary} />
+                <Ionicons name="pulse" size={22} color={tierColors.primary} />
               </View>
               <View style={styles.optionText}>
                 <Text style={styles.optionTitle}>Test haute fréquence</Text>
@@ -252,9 +259,9 @@ export default function TestDashboardScreen() {
             onPress={() => router.push('/pure-tone-test' as any)}
             style={({ pressed }) => [styles.optionWrapper, pressed && styles.optionPressed]}
           >
-            <LinearGradient colors={HERO_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCard}>
+            <LinearGradient colors={tierColors.gradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.optionCard}>
               <View style={styles.optionIconRing}>
-                <Ionicons name="ear" size={22} color={Colors.primary} />
+                <Ionicons name="ear" size={22} color={tierColors.primary} />
               </View>
               <View style={styles.optionText}>
                 <Text style={styles.optionTitle}>Test du seuil auditif</Text>
@@ -276,8 +283,8 @@ export default function TestDashboardScreen() {
                 hitSlop={8}
                 style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.6 }]}
               >
-                <Text style={styles.seeAllText}>Voir tout</Text>
-                <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                <Text style={[styles.seeAllText, { color: tierColors.primary }]}>Voir tout</Text>
+                <Ionicons name="chevron-forward" size={14} color={tierColors.primary} />
               </Pressable>
             </View>
             {history.slice(0, 3).map(item => {
@@ -294,11 +301,11 @@ export default function TestDashboardScreen() {
                   onPress={() => router.push(`/test-detail/${item.id}` as any)}
                   style={({ pressed }) => [styles.historyItem, pressed && styles.historyItemPressed]}
                 >
-                  <View style={styles.historyModeIcon}>
+                  <View style={[styles.historyModeIcon, { backgroundColor: tierColors.primaryLight }]}>
                     <Ionicons
                       name={isPTT ? 'ear' : 'pulse'}
                       size={17}
-                      color={Colors.primary}
+                      color={tierColors.primary}
                     />
                   </View>
 
@@ -319,8 +326,8 @@ export default function TestDashboardScreen() {
         {/* Empty state */}
         {!loading && history.length === 0 && (
           <View style={styles.emptySection}>
-            <View style={styles.emptyIconRing}>
-              <Ionicons name="ear-outline" size={32} color={Colors.primary} />
+            <View style={[styles.emptyIconRing, { backgroundColor: tierColors.primaryLight }]}>
+              <Ionicons name="ear-outline" size={32} color={tierColors.primary} />
             </View>
             <Text style={styles.emptyTitle}>Aucun historique</Text>
             <Text style={styles.emptySub}>
@@ -423,7 +430,6 @@ const styles = StyleSheet.create({
   sumHeader:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   sumIconRing: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
   sumTitle:   { flex: 1, fontSize: 12, fontWeight: '700', color: Colors.textSecondary, letterSpacing: -0.1 },
@@ -446,7 +452,7 @@ const styles = StyleSheet.create({
   sumEmptyValue: { fontSize: 30, fontWeight: '800', color: Colors.borderLight, marginTop: 2 },
   sumEmptyHint:  { fontSize: 12, color: Colors.textTertiary, fontWeight: '500', marginTop: 6 },
   sumCta:        { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 10 },
-  sumCtaText:    { fontSize: 12, fontWeight: '700', color: Colors.primary },
+  sumCtaText:    { fontSize: 12, fontWeight: '700' },
 
   // Test selection
   selectionSection: {
@@ -498,7 +504,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: Colors.text, letterSpacing: -0.2 },
   seeAllBtn:  { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  seeAllText: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
+  seeAllText: { fontSize: 13, fontWeight: '700' },
 
   // History
   historyItem: {
@@ -519,7 +525,6 @@ const styles = StyleSheet.create({
     borderRadius:   21,
     alignItems:     'center',
     justifyContent: 'center',
-    backgroundColor: Colors.primaryLight,
   },
   historyInfo:  { flex: 1 },
   historyDate:  { fontSize: 14, fontWeight: '600', color: Colors.text },
@@ -544,7 +549,6 @@ const styles = StyleSheet.create({
     width:          68,
     height:         68,
     borderRadius:   34,
-    backgroundColor: Colors.primaryLight,
     alignItems:     'center',
     justifyContent: 'center',
     marginBottom:   12,
@@ -556,7 +560,6 @@ const styles = StyleSheet.create({
   tipsCard: {
     marginHorizontal: 16,
     marginTop:        20,
-    backgroundColor:  Colors.primaryLight,
     borderRadius:     16,
     padding:          16,
     borderWidth:      1,
@@ -576,9 +579,9 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
   },
-  tipsSectionTitle: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.primaryDark },
+  tipsSectionTitle: { flex: 1, fontSize: 13, fontWeight: '700' },
   tipsDots:         { flexDirection: 'row', gap: 4, alignItems: 'center' },
-  tipsDot:          { width: 5, height: 5, borderRadius: 3, backgroundColor: Colors.primary, opacity: 0.3 },
+  tipsDot:          { width: 5, height: 5, borderRadius: 3, opacity: 0.3 },
   tipsDotActive:    { opacity: 1, width: 14, borderRadius: 3 },
   tipContent:       { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   tipIconWrap: {
@@ -589,7 +592,7 @@ const styles = StyleSheet.create({
     alignItems:     'center',
     justifyContent: 'center',
   },
-  tipText: { flex: 1, fontSize: 13, color: Colors.primaryDark, lineHeight: 20, fontWeight: '500' },
+  tipText: { flex: 1, fontSize: 13, lineHeight: 20, fontWeight: '500' },
 
   // Disclaimer
   disclaimer: {

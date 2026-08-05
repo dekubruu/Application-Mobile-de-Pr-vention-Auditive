@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { EvolutionChart, type EvolutionPoint } from './components/EvolutionChart';
 import { toDisplayDb } from './constants/hearing-test.constants';
 import { useTestHistory, type HistoryEntry, type HistoryFilter } from './hooks/useTestHistory';
@@ -60,6 +61,7 @@ const FILTERS: {
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { colors: tierColors } = useThemeColors();
   const { loading, entries, refresh } = useTestHistory();
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
@@ -107,12 +109,12 @@ export default function HistoryScreen() {
             onPress={() => setFilterMenuOpen(o => !o)}
             style={({ pressed }) => [
               styles.filterTrigger,
-              filterMenuOpen && styles.filterTriggerOpen,
+              filterMenuOpen && [styles.filterTriggerOpen, { borderColor: tierColors.primary }],
               pressed && styles.filterTriggerPressed,
             ]}
           >
             <View style={styles.filterTriggerLeft}>
-              <Ionicons name={activeFilter.icon} size={16} color={Colors.primary} />
+              <Ionicons name={activeFilter.icon} size={16} color={tierColors.primary} />
               <Text style={styles.filterTriggerText}>{activeFilter.label}</Text>
             </View>
             <Ionicons
@@ -123,7 +125,7 @@ export default function HistoryScreen() {
           </Pressable>
 
           {filterMenuOpen && (
-            <View style={styles.filterMenu}>
+            <View style={[styles.filterMenu, { borderColor: tierColors.primary }]}>
               {FILTERS.map((f, i) => {
                 const active = filter === f.key;
                 return (
@@ -133,17 +135,22 @@ export default function HistoryScreen() {
                     style={({ pressed }) => [
                       styles.filterOption,
                       i > 0 && styles.filterOptionBorder,
-                      active && styles.filterOptionActive,
+                      active && { backgroundColor: tierColors.primaryLight },
                       pressed && styles.filterOptionPressed,
                     ]}
                   >
                     <View style={styles.filterOptionLeft}>
-                      <Ionicons name={f.icon} size={16} color={active ? Colors.primary : Colors.textSecondary} />
-                      <Text style={[styles.filterOptionText, active && styles.filterOptionTextActive]}>
+                      <Ionicons name={f.icon} size={16} color={active ? tierColors.primary : Colors.textSecondary} />
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          active && { color: tierColors.primary, fontWeight: '800' },
+                        ]}
+                      >
                         {f.label}
                       </Text>
                     </View>
-                    {active && <Ionicons name="checkmark" size={16} color={Colors.primary} />}
+                    {active && <Ionicons name="checkmark" size={16} color={tierColors.primary} />}
                   </Pressable>
                 );
               })}
@@ -157,19 +164,19 @@ export default function HistoryScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={Colors.primary} />
+          <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={tierColors.primary} />
         }
       >
         {loading && entries.length === 0 && (
           <View style={styles.centerBox}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+            <ActivityIndicator size="large" color={tierColors.primary} />
           </View>
         )}
 
         {!loading && filtered.length === 0 && (
           <View style={styles.emptySection}>
-            <View style={styles.emptyIconRing}>
-              <Ionicons name="documents-outline" size={30} color={Colors.primary} />
+            <View style={[styles.emptyIconRing, { backgroundColor: tierColors.primaryLight }]}>
+              <Ionicons name="documents-outline" size={30} color={tierColors.primary} />
             </View>
             <Text style={styles.emptyTitle}>Aucun test</Text>
             <Text style={styles.emptySub}>
@@ -219,11 +226,11 @@ export default function HistoryScreen() {
                   onPress={() => openDetail(item.id)}
                   style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
                 >
-                  <View style={styles.rowIcon}>
+                  <View style={[styles.rowIcon, { backgroundColor: tierColors.primaryLight }]}>
                     <Ionicons
                       name={isPTT ? 'ear' : 'pulse'}
                       size={17}
-                      color={Colors.primary}
+                      color={tierColors.primary}
                     />
                   </View>
 
@@ -313,7 +320,6 @@ const styles = StyleSheet.create({
   filterTriggerOpen: {
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
-    borderColor: Colors.primary,
   },
   filterTriggerPressed: { opacity: 0.85 },
   filterTriggerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -331,7 +337,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderTopWidth: 0,
-    borderColor: Colors.primary,
     overflow: 'hidden',
     zIndex: 30,
     ...Platform.select({
@@ -340,7 +345,6 @@ const styles = StyleSheet.create({
     }),
   },
   filterOptionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  filterOptionActive: { backgroundColor: Colors.primaryLight },
   filterOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -351,7 +355,6 @@ const styles = StyleSheet.create({
   filterOptionBorder: { borderTopWidth: 0.5, borderTopColor: Colors.borderLight },
   filterOptionPressed: { backgroundColor: Colors.surfaceSecondary },
   filterOptionText: { fontSize: 14, fontWeight: '600', color: Colors.textSecondary },
-  filterOptionTextActive: { color: Colors.primary, fontWeight: '800' },
 
   centerBox: { paddingVertical: 60, alignItems: 'center' },
 
@@ -393,7 +396,6 @@ const styles = StyleSheet.create({
     width: 42, height: 42,
     borderRadius: 21,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.primaryLight,
   },
   rowInfo:  { flex: 1 },
   rowDate:  { fontSize: 14, fontWeight: '600', color: Colors.text },
@@ -416,7 +418,6 @@ const styles = StyleSheet.create({
   emptyIconRing: {
     width: 64, height: 64,
     borderRadius: 32,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 12,
   },

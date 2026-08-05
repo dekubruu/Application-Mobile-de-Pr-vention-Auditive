@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
 interface QuizProgressBarProps {
   current: number;
@@ -8,6 +9,7 @@ interface QuizProgressBarProps {
 }
 
 export const QuizProgressBar: React.FC<QuizProgressBarProps> = ({ current, total }) => {
+  const { colors: tierColors } = useThemeColors();
   const progress = useRef(new Animated.Value(current / total)).current;
 
   useEffect(() => {
@@ -30,6 +32,7 @@ export const QuizProgressBar: React.FC<QuizProgressBarProps> = ({ current, total
           style={[
             styles.fill,
             {
+              backgroundColor: tierColors.primary,
               width: progress.interpolate({
                 inputRange: [0, 1],
                 outputRange: ['0%', '100%'],
@@ -71,7 +74,6 @@ const styles = StyleSheet.create({
   },
   fill: {
     height: '100%',
-    backgroundColor: Colors.primary,
     borderRadius: 3,
   },
 });

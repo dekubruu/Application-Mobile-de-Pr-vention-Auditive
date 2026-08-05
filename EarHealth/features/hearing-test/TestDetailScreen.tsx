@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { HFRTResultView } from './components/HFRTResultView';
 import { PTTResultView } from './components/PTTResultView';
 import { usePreviousHFRTResult } from './hooks/usePreviousHFRTResult';
@@ -29,6 +30,7 @@ export default function TestDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, profile } = useAuth();
+  const { colors: tierColors } = useThemeColors();
   const userId = session?.user.id ?? null;
   const dateOfBirth = profile?.date_of_birth ?? null;
 
@@ -65,7 +67,7 @@ export default function TestDetailScreen() {
 
       {loading && (
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+          <ActivityIndicator size="large" color={tierColors.primary} />
         </View>
       )}
 

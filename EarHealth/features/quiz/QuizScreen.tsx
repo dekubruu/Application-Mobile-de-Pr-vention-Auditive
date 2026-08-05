@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { QuizDashboardView } from './components/QuizDashboardView';
 import type { DifficultyChoice } from './components/QuizDifficultyPicker';
 import { QuizErrorView } from './components/QuizErrorView';
@@ -18,6 +19,7 @@ import type { QuizDifficulty } from './types/quiz.types';
 
 export default function QuizScreen() {
   const { session } = useAuth();
+  const { colors: tierColors } = useThemeColors();
   const userId = session?.user.id ?? null;
 
   // ── Dashboard selection (persisted only in memory while on screen) ──
@@ -118,14 +120,14 @@ export default function QuizScreen() {
         {headerWithBack('Résultat', goToDashboard)}
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {quiz.saveStatus === 'saving' && (
-            <View style={styles.saveBanner}>
-              <Text style={styles.saveBannerText}>Enregistrement…</Text>
+            <View style={[styles.saveBanner, { backgroundColor: tierColors.primaryLight }]}>
+              <Text style={[styles.saveBannerText, { color: tierColors.primaryDark }]}>Enregistrement…</Text>
             </View>
           )}
           {quiz.saveStatus === 'queued' && (
-            <View style={styles.saveBannerQueued}>
-              <Ionicons name="cloud-offline-outline" size={14} color={Colors.primaryDark} />
-              <Text style={styles.saveBannerQueuedText}>
+            <View style={[styles.saveBannerQueued, { backgroundColor: tierColors.primaryLight }]}>
+              <Ionicons name="cloud-offline-outline" size={14} color={tierColors.primaryDark} />
+              <Text style={[styles.saveBannerQueuedText, { color: tierColors.primaryDark }]}>
                 Enregistré localement. Sera synchronisé à la reconnexion.
               </Text>
             </View>
@@ -223,14 +225,13 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
 
   saveBanner: {
-    backgroundColor: Colors.primaryLight,
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 12,
     marginBottom: 12,
     alignItems: 'center',
   },
-  saveBannerText: { fontSize: 12, color: Colors.primaryDark, fontWeight: '700' },
+  saveBannerText: { fontSize: 12, fontWeight: '700' },
 
   saveBannerError: {
     flexDirection: 'row',
@@ -250,11 +251,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Colors.primaryLight,
     borderRadius: 10,
     paddingVertical: 8,
     paddingHorizontal: 12,
     marginBottom: 12,
   },
-  saveBannerQueuedText: { flex: 1, fontSize: 12, color: Colors.primaryDark, fontWeight: '600' },
+  saveBannerQueuedText: { flex: 1, fontSize: 12, fontWeight: '600' },
 });

@@ -2,17 +2,21 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
-export const QuizLoadingView: React.FC = () => (
-  <View style={styles.container}>
-    <View style={styles.iconRing}>
-      <Ionicons name="help-circle-outline" size={36} color={Colors.primary} />
+export const QuizLoadingView: React.FC = () => {
+  const { colors: tierColors } = useThemeColors();
+  return (
+    <View style={styles.container}>
+      <View style={[styles.iconRing, { backgroundColor: tierColors.primaryLight }]}>
+        <Ionicons name="help-circle-outline" size={36} color={tierColors.primary} />
+      </View>
+      <ActivityIndicator size="large" color={tierColors.primary} style={styles.spinner} />
+      <Text style={styles.title}>Chargement du quiz…</Text>
+      <Text style={styles.sub}>Sélection de questions au hasard.</Text>
     </View>
-    <ActivityIndicator size="large" color={Colors.primary} style={styles.spinner} />
-    <Text style={styles.title}>Chargement du quiz…</Text>
-    <Text style={styles.sub}>Sélection de questions au hasard.</Text>
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -25,7 +29,6 @@ const styles = StyleSheet.create({
   iconRing: {
     width: 84, height: 84,
     borderRadius: 42,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,

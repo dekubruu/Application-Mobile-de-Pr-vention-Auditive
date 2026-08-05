@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import type { HearingSaveStatus } from '../services/hearing.storage';
 
 interface SaveBannerProps {
@@ -15,12 +16,13 @@ interface SaveBannerProps {
 //   • 'error'  : warning tint with warning icon
 //   • 'idle'   : renders nothing
 export const SaveBanner: React.FC<SaveBannerProps> = ({ status }) => {
+  const { colors: tierColors } = useThemeColors();
   if (status === 'idle') return null;
 
   if (status === 'saving') {
     return (
-      <View style={[styles.base, styles.info]}>
-        <Text style={styles.infoText}>Enregistrement…</Text>
+      <View style={[styles.base, { backgroundColor: tierColors.primaryLight }]}>
+        <Text style={[styles.infoText, { color: tierColors.primaryDark }]}>Enregistrement…</Text>
       </View>
     );
   }
@@ -36,9 +38,9 @@ export const SaveBanner: React.FC<SaveBannerProps> = ({ status }) => {
 
   if (status === 'queued') {
     return (
-      <View style={[styles.base, styles.info]}>
-        <Ionicons name="cloud-offline-outline" size={14} color={Colors.primaryDark} />
-        <Text style={styles.infoText}>
+      <View style={[styles.base, { backgroundColor: tierColors.primaryLight }]}>
+        <Ionicons name="cloud-offline-outline" size={14} color={tierColors.primaryDark} />
+        <Text style={[styles.infoText, { color: tierColors.primaryDark }]}>
           Enregistré localement. Sera synchronisé à la reconnexion.
         </Text>
       </View>
@@ -67,8 +69,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderRadius: 10,
   },
-  info:        { backgroundColor: Colors.primaryLight },
-  infoText:    { flex: 1, fontSize: 12, color: Colors.primaryDark, fontWeight: '600' },
+  infoText:    { flex: 1, fontSize: 12, fontWeight: '600' },
   success:     { backgroundColor: Colors.successLight },
   successText: { flex: 1, fontSize: 12, color: Colors.success, fontWeight: '600' },
   error: {

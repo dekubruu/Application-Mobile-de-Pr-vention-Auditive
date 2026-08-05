@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
 interface StatsGridProps {
   hearingTests: number;
@@ -16,16 +17,17 @@ const STATS = [
 ];
 
 export const StatsGrid: React.FC<StatsGridProps> = ({ hearingTests, quizSessions, points }) => {
+  const { colors: tierColors } = useThemeColors();
   const values: Record<string, number> = { hearingTests, quizSessions, points };
 
   return (
     <View style={styles.grid}>
       {STATS.map((stat) => (
         <View key={stat.key} style={styles.card}>
-          <View style={styles.iconRing}>
-            <Ionicons name={stat.icon} size={18} color={Colors.primary} />
+          <View style={[styles.iconRing, { backgroundColor: tierColors.primaryLight }]}>
+            <Ionicons name={stat.icon} size={18} color={tierColors.primary} />
           </View>
-          <Text style={styles.value}>{values[stat.key]}</Text>
+          <Text style={[styles.value, { color: tierColors.primary }]}>{values[stat.key]}</Text>
           <Text style={styles.label}>{stat.label}</Text>
         </View>
       ))}
@@ -56,7 +58,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -64,7 +65,6 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.primary,
     letterSpacing: -0.5,
     marginBottom: 2,
   },

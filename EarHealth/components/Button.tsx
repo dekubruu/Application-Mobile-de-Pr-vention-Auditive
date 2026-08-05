@@ -9,6 +9,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Colors } from '../constants/colors';
+import { useThemeColors } from '../features/theme/ThemeContext';
 
 interface ButtonProps {
   onPress: () => void;
@@ -29,6 +30,7 @@ export const Button: React.FC<ButtonProps> = ({
   textStyle,
   disabled = false,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () =>
@@ -46,8 +48,8 @@ export const Button: React.FC<ButtonProps> = ({
         disabled={disabled}
         style={[
           styles.base,
-          variant === 'primary' && styles.primary,
-          variant === 'secondary' && styles.secondary,
+          variant === 'primary' && { backgroundColor: tierColors.primary },
+          variant === 'secondary' && [styles.secondary, { borderColor: tierColors.primary }],
           variant === 'ghost' && styles.ghost,
           variant === 'danger' && styles.danger,
           size === 'lg' && styles.lg,
@@ -60,8 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
           style={[
             styles.label,
             variant === 'primary' && styles.labelPrimary,
-            variant === 'secondary' && styles.labelSecondary,
-            variant === 'ghost' && styles.labelGhost,
+            (variant === 'secondary' || variant === 'ghost') && { color: tierColors.primary },
             variant === 'danger' && styles.labelPrimary,
             size === 'sm' && styles.labelSm,
             textStyle,
@@ -80,8 +81,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  primary: { backgroundColor: Colors.primary },
-  secondary: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: Colors.primary },
+  secondary: { backgroundColor: 'transparent', borderWidth: 1.5 },
   ghost: { backgroundColor: 'transparent' },
   danger: { backgroundColor: Colors.error },
   lg: { paddingVertical: 16, paddingHorizontal: 28, minHeight: 56 },
@@ -90,7 +90,5 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.45 },
   label: { fontSize: 16, fontWeight: '600', letterSpacing: 0.1 },
   labelPrimary: { color: '#FFFFFF' },
-  labelSecondary: { color: Colors.primary },
-  labelGhost: { color: Colors.primary },
   labelSm: { fontSize: 14 },
 });

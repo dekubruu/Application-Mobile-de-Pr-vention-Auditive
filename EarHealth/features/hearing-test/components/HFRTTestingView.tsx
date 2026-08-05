@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import {
   HFRT_MAX_FREQ,
   HFRT_MIN_FREQ,
@@ -39,6 +40,7 @@ export const HFRTTestingView: React.FC<HFRTTestingViewProps> = ({
   onHoldStart,
   onHoldEnd,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const pct = freqProgress(currentFreq);
   const { value, unit } = formatHz(currentFreq);
 
@@ -49,12 +51,12 @@ export const HFRTTestingView: React.FC<HFRTTestingViewProps> = ({
         <Text style={styles.label}>FRÉQUENCE COURANTE</Text>
         <View style={styles.valueRow}>
           <Text style={styles.value}>{value}</Text>
-          <Text style={styles.unit}>{unit}</Text>
+          <Text style={[styles.unit, { color: tierColors.primary }]}>{unit}</Text>
         </View>
 
         {/* Progress gauge */}
         <View style={styles.gaugeTrack}>
-          <View style={[styles.gaugeFill, { width: `${pct * 100}%` }]} />
+          <View style={[styles.gaugeFill, { backgroundColor: tierColors.primary, width: `${pct * 100}%` }]} />
         </View>
         <View style={styles.gaugeLabels}>
           <Text style={styles.gaugeLabel}>{HFRT_MIN_FREQ / 1000} kHz</Text>
@@ -118,7 +120,6 @@ const styles = StyleSheet.create({
   unit: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.primary,
     letterSpacing: -0.3,
   },
 
@@ -131,7 +132,6 @@ const styles = StyleSheet.create({
   },
   gaugeFill: {
     height: '100%',
-    backgroundColor: Colors.primary,
     borderRadius: 4,
   },
   gaugeLabels: {

@@ -6,6 +6,7 @@ import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { AudioEngine, type AudioEngineHandle } from './audio/AudioEngine';
 import { HeadphoneGateView } from './components/HeadphoneGateView';
 import { HFRTResultView } from './components/HFRTResultView';
@@ -16,6 +17,7 @@ import { usePreviousHFRTResult } from './hooks/usePreviousHFRTResult';
 
 export default function HighFrequencyTestScreen() {
   const router = useRouter();
+  const { colors: tierColors } = useThemeColors();
   const { session, profile } = useAuth();
   const userId = session?.user.id ?? null;
   const dateOfBirth = profile?.date_of_birth ?? null;
@@ -104,11 +106,14 @@ export default function HighFrequencyTestScreen() {
           <SaveBanner status={saveStatus} />
           <HFRTResultView result={result} dateOfBirth={dateOfBirth} previousMaxHz={previousMaxHz} />
           <View style={styles.footer}>
-            <Pressable onPress={reset} style={styles.footerBtnSecondary}>
-              <Ionicons name="refresh" size={17} color={Colors.primary} />
-              <Text style={styles.footerBtnSecondaryText}>Refaire</Text>
+            <Pressable onPress={reset} style={[styles.footerBtnSecondary, { borderColor: tierColors.primary }]}>
+              <Ionicons name="refresh" size={17} color={tierColors.primary} />
+              <Text style={[styles.footerBtnSecondaryText, { color: tierColors.primary }]}>Refaire</Text>
             </Pressable>
-            <Pressable onPress={() => router.back()} style={styles.footerBtnPrimary}>
+            <Pressable
+              onPress={() => router.back()}
+              style={[styles.footerBtnPrimary, { backgroundColor: tierColors.primary }]}
+            >
               <Text style={styles.footerBtnPrimaryText}>Terminer</Text>
             </Pressable>
           </View>
@@ -122,65 +127,72 @@ export default function HighFrequencyTestScreen() {
 
 const IntroView: React.FC<{ audioReady: boolean; onStart: () => void }> = ({
   audioReady, onStart,
-}) => (
-  <ScrollView contentContainerStyle={styles.introContainer}>
-    <View style={styles.iconRing}>
-      <Ionicons name="pulse" size={36} color={Colors.primary} />
-    </View>
+}) => {
+  const { colors: tierColors } = useThemeColors();
+  return (
+    <ScrollView contentContainerStyle={styles.introContainer}>
+      <View style={[styles.iconRing, { backgroundColor: tierColors.primaryLight }]}>
+        <Ionicons name="pulse" size={36} color={tierColors.primary} />
+      </View>
 
-    <Text style={styles.introTitle}>Test haute fréquence</Text>
-    <Text style={styles.introSub}>
-      Nous allons trouver la fréquence la plus aiguë que vous percevez.
-      La fréquence va monter progressivement.
-    </Text>
-
-    <View style={styles.steps}>
-      <StepRow num="1" text="Mettez des écouteurs" />
-      <StepRow num="2" text="Réglez le volume du téléphone à mi-course" />
-      <StepRow num="3" text="Maintenez le bouton tant que vous entendez" />
-      <StepRow num="4" text="Relâchez dès que le son devient inaudible" />
-      <StepRow num="5" text="Répétez le processus jusqu'à la fin du test" />
-    </View>
-
-    <View style={styles.tipBox}>
-      <Ionicons name="bulb-outline" size={16} color={Colors.primaryDark} />
-      <Text style={styles.tipText}>
-        Ici, c’est la fréquence qui monte (pas le volume). Tenez bon jusqu’à ne plus rien entendre.
+      <Text style={styles.introTitle}>Test haute fréquence</Text>
+      <Text style={styles.introSub}>
+        Nous allons trouver la fréquence la plus aiguë que vous percevez.
+        La fréquence va monter progressivement.
       </Text>
-    </View>
 
-    <Pressable
-      disabled={!audioReady}
-      onPress={onStart}
-      style={({ pressed }) => [
-        styles.ctaWrapper,
-        pressed && styles.ctaPressed,
-        !audioReady && styles.ctaDisabled,
-      ]}
-    >
-      <LinearGradient
-        colors={['#0D8FA5', '#0B7285', '#09616F']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.cta}
-      >
-        <Text style={styles.ctaText}>
-          {audioReady ? 'Commencer le test' : 'Chargement audio…'}
+      <View style={styles.steps}>
+        <StepRow num="1" text="Mettez des écouteurs" />
+        <StepRow num="2" text="Réglez le volume du téléphone à mi-course" />
+        <StepRow num="3" text="Maintenez le bouton tant que vous entendez" />
+        <StepRow num="4" text="Relâchez dès que le son devient inaudible" />
+        <StepRow num="5" text="Répétez le processus jusqu'à la fin du test" />
+      </View>
+
+      <View style={[styles.tipBox, { backgroundColor: tierColors.primaryLight }]}>
+        <Ionicons name="bulb-outline" size={16} color={tierColors.primaryDark} />
+        <Text style={[styles.tipText, { color: tierColors.primaryDark }]}>
+          Ici, c’est la fréquence qui monte (pas le volume). Tenez bon jusqu’à ne plus rien entendre.
         </Text>
-        {audioReady && <Ionicons name="arrow-forward" size={20} color="#fff" />}
-      </LinearGradient>
-    </Pressable>
-  </ScrollView>
-);
+      </View>
 
-const StepRow: React.FC<{ num: string; text: string }> = ({ num, text }) => (
-  <View style={styles.stepRow}>
-    <View style={styles.stepNum}>
-      <Text style={styles.stepNumText}>{num}</Text>
+      <Pressable
+        disabled={!audioReady}
+        onPress={onStart}
+        style={({ pressed }) => [
+          styles.ctaWrapper,
+          { shadowColor: tierColors.primaryDark },
+          pressed && styles.ctaPressed,
+          !audioReady && styles.ctaDisabled,
+        ]}
+      >
+        <LinearGradient
+          colors={tierColors.gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cta}
+        >
+          <Text style={styles.ctaText}>
+            {audioReady ? 'Commencer le test' : 'Chargement audio…'}
+          </Text>
+          {audioReady && <Ionicons name="arrow-forward" size={20} color="#fff" />}
+        </LinearGradient>
+      </Pressable>
+    </ScrollView>
+  );
+};
+
+const StepRow: React.FC<{ num: string; text: string }> = ({ num, text }) => {
+  const { colors: tierColors } = useThemeColors();
+  return (
+    <View style={styles.stepRow}>
+      <View style={[styles.stepNum, { backgroundColor: tierColors.primaryLight }]}>
+        <Text style={[styles.stepNumText, { color: tierColors.primaryDark }]}>{num}</Text>
+      </View>
+      <Text style={styles.stepText}>{text}</Text>
     </View>
-    <Text style={styles.stepText}>{text}</Text>
-  </View>
-);
+  );
+};
 
 // ── Styles ──
 
@@ -213,7 +225,6 @@ const styles = StyleSheet.create({
   iconRing: {
     width: 84, height: 84,
     borderRadius: 42,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
     marginTop: 18, marginBottom: 14,
   },
@@ -241,10 +252,9 @@ const styles = StyleSheet.create({
   stepNum: {
     width: 28, height: 28,
     borderRadius: 14,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  stepNumText: { fontSize: 13, fontWeight: '800', color: Colors.primaryDark },
+  stepNumText: { fontSize: 13, fontWeight: '800' },
   stepText: { flex: 1, fontSize: 13, color: Colors.text, fontWeight: '500' },
 
   tipBox: {
@@ -252,12 +262,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
     padding: 12,
-    backgroundColor: Colors.primaryLight,
     borderRadius: 12,
     marginTop: 14,
     width: '100%',
   },
-  tipText: { flex: 1, fontSize: 12, color: Colors.primaryDark, lineHeight: 18, fontWeight: '500' },
+  tipText: { flex: 1, fontSize: 12, lineHeight: 18, fontWeight: '500' },
 
   ctaWrapper: {
     width: '100%',
@@ -265,7 +274,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 22,
     ...Platform.select({
-      ios:     { shadowColor: Colors.primaryDark, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
+      ios:     { shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 14 },
       android: { elevation: 6 },
     }),
   },
@@ -300,16 +309,14 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: Colors.primary,
   },
-  footerBtnSecondaryText: { fontSize: 14, fontWeight: '700', color: Colors.primary },
+  footerBtnSecondaryText: { fontSize: 14, fontWeight: '700' },
   footerBtnPrimary: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
   },
   footerBtnPrimaryText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

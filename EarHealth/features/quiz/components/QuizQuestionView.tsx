@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Card } from '@/components/Card';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import type { Question, QuizCategory, QuizDifficulty } from '../types/quiz.types';
 
 interface QuizQuestionViewProps {
@@ -30,11 +31,13 @@ const DIFFICULTY_LABELS: Record<QuizDifficulty, string> = {
   hard:   'Difficile',
 };
 
-const DIFFICULTY_COLOR: Record<QuizDifficulty, string> = {
-  easy:   Colors.success,
-  medium: Colors.primary,
-  hard:   Colors.error,
-};
+function getDifficultyColor(primary: string): Record<QuizDifficulty, string> {
+  return {
+    easy:   Colors.success,
+    medium: primary,
+    hard:   Colors.error,
+  };
+}
 
 // ── Answer button with feedback state ────────────────────────────────────────
 
@@ -50,6 +53,7 @@ interface AnswerButtonProps {
 const AnswerButton: React.FC<AnswerButtonProps> = ({
   label, index, selected, correct, revealed, onPress,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const scale = useRef(new Animated.Value(1)).current;
 
   const isSelected = selected === index;
@@ -57,11 +61,12 @@ const AnswerButton: React.FC<AnswerButtonProps> = ({
   const isWrong    = revealed && isSelected && index !== correct;
   const disabled   = revealed;
 
+  const selectedStyle = { backgroundColor: tierColors.primaryLight, borderColor: tierColors.primary };
   const variantStyle =
     isCorrect ? styles.answerCorrect :
     isWrong   ? styles.answerWrong :
     revealed  ? styles.answerMuted :
-    isSelected ? styles.answerSelected : null;
+    isSelected ? selectedStyle : null;
 
   const letterStyle =
     isCorrect ? styles.letterCorrect :
@@ -90,7 +95,7 @@ const AnswerButton: React.FC<AnswerButtonProps> = ({
         style={({ pressed }) => [
           styles.answer,
           variantStyle,
-          pressed && !disabled && styles.answerPressed,
+          pressed && !disabled && selectedStyle,
         ]}
       >
         <View style={[styles.letterBadge, letterStyle]}>
@@ -118,8 +123,9 @@ export const QuizQuestionView: React.FC<QuizQuestionViewProps> = ({
   onNext,
   isLastQuestion,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const isCorrect = selectedAnswer === question.correct;
-  const diffColor = DIFFICULTY_COLOR[question.difficulty];
+  const diffColor = getDifficultyColor(tierColors.primary)[question.difficulty];
 
   return (
     <>
@@ -190,7 +196,11 @@ export const QuizQuestionView: React.FC<QuizQuestionViewProps> = ({
       {showExplanation && (
         <Pressable
           onPress={onNext}
-          style={({ pressed }) => [styles.nextBtn, pressed && styles.nextBtnPressed]}
+          style={({ pressed }) => [
+            styles.nextBtn,
+            { backgroundColor: tierColors.primary, shadowColor: tierColors.primaryDark },
+            pressed && styles.nextBtnPressed,
+          ]}
         >
           <Text style={styles.nextBtnText}>
             {isLastQuestion ? 'Voir les résultats' : 'Question suivante'}
@@ -267,14 +277,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     gap: 12,
-  },
-  answerPressed: {
-    backgroundColor: Colors.primaryLight,
-    borderColor: Colors.primary,
-  },
-  answerSelected: {
-    backgroundColor: Colors.primaryLight,
-    borderColor: Colors.primary,
   },
   answerCorrect: {
     backgroundColor: Colors.successLight,
@@ -355,10 +357,9 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: 14,
-    backgroundColor: Colors.primary,
     marginTop: 16,
     ...Platform.select({
-      ios:     { shadowColor: Colors.primaryDark, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
+      ios:     { shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10 },
       android: { elevation: 4 },
     }),
   },

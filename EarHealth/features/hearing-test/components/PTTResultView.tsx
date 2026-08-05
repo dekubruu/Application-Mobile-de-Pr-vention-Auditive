@@ -3,6 +3,7 @@ import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import {
   formatFrequency,
   getCategoryColor,
@@ -273,12 +274,15 @@ const CapacityColumn: React.FC<{ ear: 'left' | 'right'; db: number }> = ({ ear, 
 // `db` here is the INTERNAL value; dbColor must keep receiving the internal
 // scale (its thresholds 20/40/60 are calibrated against it), only the
 // rendered text is offset.
-const DbCell: React.FC<{ db: number; reliable: boolean }> = ({ db, reliable }) => (
-  <View style={[styles.colEar, styles.cellEar]}>
-    <Text style={[styles.cellDb, { color: dbColor(db) }]}>{toDisplayDb(db)}</Text>
-    {!reliable && <Text style={styles.cellUnreliable}>~</Text>}
-  </View>
-);
+const DbCell: React.FC<{ db: number; reliable: boolean }> = ({ db, reliable }) => {
+  const { colors: tierColors } = useThemeColors();
+  return (
+    <View style={[styles.colEar, styles.cellEar]}>
+      <Text style={[styles.cellDb, { color: dbColor(db, tierColors.primary) }]}>{toDisplayDb(db)}</Text>
+      {!reliable && <Text style={styles.cellUnreliable}>~</Text>}
+    </View>
+  );
+};
 
 const Empty: React.FC = () => (
   <View style={[styles.colEar, styles.cellEar]}>
@@ -286,9 +290,9 @@ const Empty: React.FC = () => (
   </View>
 );
 
-function dbColor(db: number): string {
+function dbColor(db: number, primary: string): string {
   if (db <= 20) return Colors.success;
-  if (db <= 40) return Colors.primary;
+  if (db <= 40) return primary;
   if (db <= 60) return Colors.warning;
   return Colors.error;
 }

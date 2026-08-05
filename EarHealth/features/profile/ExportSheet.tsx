@@ -5,6 +5,7 @@ import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import type { HearingTestType } from '@/features/hearing-test/services/hearing.storage';
 import { exportHearingResultsPdf } from './services/pdfExport.service';
 
@@ -41,6 +42,7 @@ interface ExportSheetProps {
 
 export function ExportSheet({ visible, onClose }: ExportSheetProps) {
   const { session, profile } = useAuth();
+  const { colors: tierColors } = useThemeColors();
 
   const [testTypes, setTestTypes] = useState<Set<HearingTestType>>(new Set(['ptt', 'hfrt']));
   const [periodMode, setPeriodMode]   = useState<PeriodMode>('all');
@@ -106,10 +108,19 @@ export function ExportSheet({ visible, onClose }: ExportSheetProps) {
               <Pressable
                 key={opt.key}
                 onPress={() => toggleType(opt.key)}
-                style={({ pressed }) => [styles.typeRow, active && styles.typeRowActive, pressed && styles.typeRowPressed]}
+                style={({ pressed }) => [
+                  styles.typeRow,
+                  active && { borderColor: tierColors.primary, backgroundColor: tierColors.primaryLight },
+                  pressed && styles.typeRowPressed,
+                ]}
               >
-                <View style={[styles.typeIconRing, active && styles.typeIconRingActive]}>
-                  <Ionicons name={opt.icon} size={20} color={active ? '#fff' : Colors.primary} />
+                <View
+                  style={[
+                    styles.typeIconRing,
+                    { backgroundColor: active ? tierColors.primary : tierColors.primaryLight },
+                  ]}
+                >
+                  <Ionicons name={opt.icon} size={20} color={active ? '#fff' : tierColors.primary} />
                 </View>
                 <View style={styles.typeText}>
                   <Text style={styles.typeLabel}>{opt.label}</Text>
@@ -118,7 +129,7 @@ export function ExportSheet({ visible, onClose }: ExportSheetProps) {
                 <Ionicons
                   name={active ? 'checkmark-circle' : 'ellipse-outline'}
                   size={22}
-                  color={active ? Colors.primary : Colors.textTertiary}
+                  color={active ? tierColors.primary : Colors.textTertiary}
                 />
               </Pressable>
             );
@@ -131,10 +142,19 @@ export function ExportSheet({ visible, onClose }: ExportSheetProps) {
               <Pressable
                 key={opt.key}
                 onPress={() => setPeriodMode(opt.key)}
-                style={({ pressed }) => [styles.typeRow, active && styles.typeRowActive, pressed && styles.typeRowPressed]}
+                style={({ pressed }) => [
+                  styles.typeRow,
+                  active && { borderColor: tierColors.primary, backgroundColor: tierColors.primaryLight },
+                  pressed && styles.typeRowPressed,
+                ]}
               >
-                <View style={[styles.typeIconRing, active && styles.typeIconRingActive]}>
-                  <Ionicons name={opt.icon} size={20} color={active ? '#fff' : Colors.primary} />
+                <View
+                  style={[
+                    styles.typeIconRing,
+                    { backgroundColor: active ? tierColors.primary : tierColors.primaryLight },
+                  ]}
+                >
+                  <Ionicons name={opt.icon} size={20} color={active ? '#fff' : tierColors.primary} />
                 </View>
                 <View style={styles.typeText}>
                   <Text style={styles.typeLabel}>{opt.label}</Text>
@@ -143,7 +163,7 @@ export function ExportSheet({ visible, onClose }: ExportSheetProps) {
                 <Ionicons
                   name={active ? 'checkmark-circle' : 'ellipse-outline'}
                   size={22}
-                  color={active ? Colors.primary : Colors.textTertiary}
+                  color={active ? tierColors.primary : Colors.textTertiary}
                 />
               </Pressable>
             );
@@ -228,14 +248,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     marginTop: 8,
   },
-  typeRowActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
   typeRowPressed: { opacity: 0.9 },
   typeIconRing: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  typeIconRingActive: { backgroundColor: Colors.primary },
   typeText: { flex: 1 },
   typeLabel: { fontSize: 14, fontWeight: '700', color: Colors.text },
   typeSub: { fontSize: 11, color: Colors.textSecondary, marginTop: 2 },

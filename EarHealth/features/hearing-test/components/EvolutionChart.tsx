@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
 // ── Line chart of a single metric over time ──────────────────────────────────
 // Hand-rolled (no charting dependency) with the same absolute-View + rotated
@@ -36,6 +37,7 @@ function formatValue(v: number, unit: string): string {
 export const EvolutionChart: React.FC<EvolutionChartProps> = ({
   points, unit, betterWhenHigher, height = 200,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -90,15 +92,19 @@ export const EvolutionChart: React.FC<EvolutionChartProps> = ({
 
         {/* Segments between consecutive points */}
         {pts.length > 1 && pts.slice(0, -1).map((p, i) => (
-          <Segment key={`s-${i}`} from={p} to={pts[i + 1]} color={Colors.primary} />
+          <Segment key={`s-${i}`} from={p} to={pts[i + 1]} color={tierColors.primary} />
         ))}
 
         {/* Markers + value labels */}
         {pts.map((p, i) => (
           <React.Fragment key={`m-${i}`}>
-            <View style={[styles.dot, { left: p.x - 5, top: p.y - 5 }]} />
+            <View
+              style={[styles.dot, { left: p.x - 5, top: p.y - 5, borderColor: tierColors.primary }]}
+            />
             {(labelEvery || i === 0 || i === pts.length - 1) && (
-              <Text style={[styles.valueLabel, { left: p.x - 20, top: p.y - 24 }]}>
+              <Text
+                style={[styles.valueLabel, { left: p.x - 20, top: p.y - 24, color: tierColors.primaryDark }]}
+              >
                 {formatValue(points[i].value, unit)}
               </Text>
             )}
@@ -196,14 +202,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: Colors.surface,
     borderWidth: 2.5,
-    borderColor: Colors.primary,
   },
   valueLabel: {
     position: 'absolute',
     width: 40,
     fontSize: 10,
     fontWeight: '800',
-    color: Colors.primaryDark,
     textAlign: 'center',
   },
   caption: {

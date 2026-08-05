@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { getCategoryColor } from '../constants/hearing-test.constants';
 import { HAUTES_FREQUENCES_INFO } from '../constants/hearing-info';
 import {
@@ -29,6 +30,7 @@ interface HFRTResultViewProps {
 export const HFRTResultView: React.FC<HFRTResultViewProps> = ({
   result, dateOfBirth, ageAtTest, previousMaxHz,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const { maxAudibleFrequency, reliable, durationMs, hitCeiling, noResponse } = result;
 
   // ── No-response branch: setup problem, not a measurement (not persisted) ──
@@ -63,8 +65,8 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.iconRing}>
-        <Ionicons name="pulse" size={40} color={Colors.primary} />
+      <View style={[styles.iconRing, { backgroundColor: tierColors.primaryLight }]}>
+        <Ionicons name="pulse" size={40} color={tierColors.primary} />
       </View>
 
       <Text style={styles.title}>Limite haute détectée</Text>
@@ -72,7 +74,7 @@ export const HFRTResultView: React.FC<HFRTResultViewProps> = ({
       <View style={styles.bigValueWrap}>
         {hitCeiling && <Text style={styles.bigPrefix}>≥</Text>}
         <Text style={styles.bigValue}>{hitCeiling ? '20' : kHz}</Text>
-        <Text style={styles.bigUnit}>kHz</Text>
+        <Text style={[styles.bigUnit, { color: tierColors.primary }]}>kHz</Text>
       </View>
 
       {hitCeiling && (
@@ -180,7 +182,6 @@ const styles = StyleSheet.create({
   iconRing: {
     width: 78, height: 78,
     borderRadius: 39,
-    backgroundColor: Colors.primaryLight,
     alignItems: 'center', justifyContent: 'center',
     marginTop: 12,
   },
@@ -213,7 +214,6 @@ const styles = StyleSheet.create({
   bigUnit: {
     fontSize: 22,
     fontWeight: '700',
-    color: Colors.primary,
   },
   ceilingNote: {
     fontSize: 12,

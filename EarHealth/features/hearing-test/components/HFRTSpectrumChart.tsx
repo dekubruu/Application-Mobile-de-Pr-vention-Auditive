@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { HFRT_MAX_FREQ, HFRT_MIN_FREQ, HFRT_QUALITY_BANDS } from '../services/HFRTAlgorithm';
 
 // Horizontal LOG-frequency scale (8 → 20 kHz) with colored "age-bracket" zones,
@@ -38,6 +39,7 @@ interface HFRTSpectrumChartProps {
 export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
   maxHz, hitCeiling, expectedHz, previousHz,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const [w, setW] = useState(0);
   const [pillW, setPillW] = useState(64); // measured at layout; 64 = sane default
   const onLayout = (e: LayoutChangeEvent) => {
@@ -68,7 +70,7 @@ export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
       {/* Result pill above the marker */}
       {ready && (
         <View
-          style={[styles.pill, { left: pillLeft }]}
+          style={[styles.pill, { left: pillLeft, backgroundColor: tierColors.primary }]}
           pointerEvents="none"
           onLayout={(e) => {
             const pw = e.nativeEvent.layout.width;
@@ -101,16 +103,28 @@ export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
             data point rather than a computed reference like the age line. */}
         {ready && previousX != null && (
           <>
-            <View style={[styles.previousLine, { left: previousX }]} pointerEvents="none" />
-            <View style={[styles.previousDot, { left: previousX - 5 }]} pointerEvents="none" />
+            <View
+              style={[styles.previousLine, { left: previousX, backgroundColor: tierColors.primary }]}
+              pointerEvents="none"
+            />
+            <View
+              style={[styles.previousDot, { left: previousX - 5, borderColor: tierColors.primary }]}
+              pointerEvents="none"
+            />
           </>
         )}
 
         {/* User's result marker */}
         {ready && (
           <>
-            <View style={[styles.markerLine, { left: markerX }]} pointerEvents="none" />
-            <View style={[styles.markerDot, { left: markerX - 5 }]} pointerEvents="none" />
+            <View
+              style={[styles.markerLine, { left: markerX, backgroundColor: tierColors.primaryDark }]}
+              pointerEvents="none"
+            />
+            <View
+              style={[styles.markerDot, { left: markerX - 5, backgroundColor: tierColors.primaryDark }]}
+              pointerEvents="none"
+            />
           </>
         )}
       </View>
@@ -130,13 +144,15 @@ export const HFRTSpectrumChart: React.FC<HFRTSpectrumChartProps> = ({
         <View style={styles.legendRow}>
           {previousX != null && (
             <View style={styles.legendMid}>
-              <View style={styles.legendDot} />
+              <View style={[styles.legendDot, { backgroundColor: tierColors.primaryDark }]} />
               <Text style={styles.legendMidText}>test actuel</Text>
             </View>
           )}
           {previousX != null && (
             <View style={styles.legendMid}>
-              <View style={[styles.legendDot, styles.legendDotHollow]} />
+              <View
+                style={[styles.legendDot, styles.legendDotHollow, { borderColor: tierColors.primary }]}
+              />
               <Text style={styles.legendMidText}>test précédent</Text>
             </View>
           )}
@@ -166,7 +182,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,
-    backgroundColor: Colors.primary,
     alignItems: 'center',
   },
   pillText: { fontSize: 12, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
@@ -188,7 +203,6 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 2.5,
-    backgroundColor: Colors.primaryDark,
   },
   markerDot: {
     position: 'absolute',
@@ -196,7 +210,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: Colors.primaryDark,
     borderWidth: 2,
     borderColor: '#fff',
   },
@@ -213,7 +226,6 @@ const styles = StyleSheet.create({
     top: 4,
     bottom: 4,
     width: 1.5,
-    backgroundColor: Colors.primary,
     opacity: 0.4,
   },
   previousDot: {
@@ -224,7 +236,6 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: Colors.surface,
     borderWidth: 2,
-    borderColor: Colors.primary,
     opacity: 0.75,
   },
 
@@ -257,12 +268,10 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 10, height: 10,
     borderRadius: 5,
-    backgroundColor: Colors.primaryDark,
   },
   legendDotHollow: {
     backgroundColor: Colors.surface,
     borderWidth: 2,
-    borderColor: Colors.primary,
   },
   legendMidText: { fontSize: 10, color: Colors.textSecondary, fontWeight: '600' },
 });

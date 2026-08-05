@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
 interface HoldButtonProps {
   active:       boolean;
@@ -23,6 +24,7 @@ export const HoldButton: React.FC<HoldButtonProps> = ({
   onHoldStart,
   onHoldEnd,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const pulse = useRef(new Animated.Value(1)).current;
   const ring  = useRef(new Animated.Value(0)).current;
 
@@ -63,6 +65,7 @@ export const HoldButton: React.FC<HoldButtonProps> = ({
           <Animated.View
             style={[
               styles.expandRing,
+              { borderColor: tierColors.primary },
               { transform: [{ scale: ringScale }], opacity: ringOpacity },
             ]}
           />
@@ -75,16 +78,13 @@ export const HoldButton: React.FC<HoldButtonProps> = ({
             onPressOut={onHoldEnd}
             style={({ pressed }) => [
               styles.button,
+              { shadowColor: tierColors.primaryDark },
               pressed && styles.buttonPressed,
               disabled && styles.buttonDisabled,
             ]}
           >
             <LinearGradient
-              colors={
-                active
-                  ? ['#0D8FA5', '#0B7285', '#09616F']
-                  : ['#1A9AB0', '#0D8FA5', '#0B7285']
-              }
+              colors={tierColors.gradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.gradient}
@@ -120,7 +120,6 @@ const styles = StyleSheet.create({
     height: SIZE,
     borderRadius: SIZE / 2,
     borderWidth: 3,
-    borderColor: Colors.primary,
   },
   button: {
     width:  SIZE,
@@ -128,7 +127,7 @@ const styles = StyleSheet.create({
     borderRadius: SIZE / 2,
     overflow: 'hidden',
     ...Platform.select({
-      ios:     { shadowColor: Colors.primaryDark, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 18 },
+      ios:     { shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 18 },
       android: { elevation: 10 },
     }),
   },

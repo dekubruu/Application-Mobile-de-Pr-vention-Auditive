@@ -3,6 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import React, { useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { INFO_DISCLAIMER, type InfoContent } from '../constants/hearing-info';
 
 interface InfoTooltipProps {
@@ -20,6 +21,7 @@ interface InfoTooltipProps {
 export const InfoTooltip: React.FC<InfoTooltipProps> = ({
   content, size = 16, color = Colors.textTertiary, label,
 }) => {
+  const { colors: tierColors } = useThemeColors();
   const [open, setOpen] = useState(false);
 
   const openLink = () => {
@@ -68,9 +70,14 @@ export const InfoTooltip: React.FC<InfoTooltipProps> = ({
             )}
 
             {content.link && (
-              <Pressable onPress={openLink} style={styles.linkBtn}>
-                <Ionicons name="open-outline" size={16} color={Colors.primary} />
-                <Text style={styles.linkText}>Plus d’informations · {content.link.label}</Text>
+              <Pressable
+                onPress={openLink}
+                style={[styles.linkBtn, { backgroundColor: tierColors.primaryLight }]}
+              >
+                <Ionicons name="open-outline" size={16} color={tierColors.primary} />
+                <Text style={[styles.linkText, { color: tierColors.primaryDark }]}>
+                  Plus d’informations · {content.link.label}
+                </Text>
               </Pressable>
             )}
 
@@ -81,7 +88,10 @@ export const InfoTooltip: React.FC<InfoTooltipProps> = ({
               </View>
             )}
 
-            <Pressable onPress={() => setOpen(false)} style={styles.closeBtn}>
+            <Pressable
+              onPress={() => setOpen(false)}
+              style={[styles.closeBtn, { backgroundColor: tierColors.primary }]}
+            >
               <Text style={styles.closeText}>Fermer</Text>
             </Pressable>
           </ScrollView>
@@ -155,11 +165,10 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    backgroundColor: Colors.primaryLight,
     borderRadius: 12,
     marginBottom: 14,
   },
-  linkText: { flex: 1, fontSize: 13, fontWeight: '700', color: Colors.primaryDark },
+  linkText: { flex: 1, fontSize: 13, fontWeight: '700' },
 
   disclaimer: {
     flexDirection: 'row',
@@ -177,7 +186,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: Colors.primary,
   },
   closeText: { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

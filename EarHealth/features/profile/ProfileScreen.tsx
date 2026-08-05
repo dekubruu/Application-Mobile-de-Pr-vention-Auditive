@@ -21,14 +21,11 @@ import { DateField } from '@/components/DateField';
 import { GenderSelector } from '@/components/GenderSelector';
 import { Colors } from '@/constants/colors';
 import { profileService } from '@/features/auth/services/profile.service';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import { StatsGrid } from './components/StatsGrid';
 import { ExportSheet } from './ExportSheet';
 import { useProfileData } from './hooks/useProfileData';
-
-// Same gradient used for the quiz/hearing-test dashboard heroes — kept as its
-// own local constant here too (not shared/exported), matching how each
-// screen already defines it independently.
-const HERO_GRADIENT: [string, string, string] = ['#0D8FA5', '#0B7285', '#064E5F'];
+import { ThemeSheet } from './ThemeSheet';
 
 // ── Date helpers (local-parts based to avoid UTC off-by-one) ────────────────
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -58,8 +55,10 @@ export default function ProfileScreen() {
     profile, session, testsCount, loadingStats, refreshProfile, signOut,
     quizSessionsPlayed,
   } = useProfileData();
+  const { colors: tierColors } = useThemeColors();
   const [editVisible, setEditVisible] = useState(false);
   const [exportVisible, setExportVisible] = useState(false);
+  const [themeSheetVisible, setThemeSheetVisible] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editGender, setEditGender] = useState('');
   const [editDob, setEditDob] = useState<Date>(defaultDob);
@@ -124,7 +123,7 @@ export default function ProfileScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <LinearGradient
-          colors={HERO_GRADIENT}
+          colors={tierColors.gradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.profileCard}
@@ -132,11 +131,15 @@ export default function ProfileScreen() {
           <View style={styles.decor1} />
           <View style={styles.decor2} />
 
-          <Pressable style={styles.editBtn} onPress={openEditSheet} hitSlop={8}>
-            <Ionicons name="pencil-outline" size={18} color={Colors.primary} />
+          <Pressable
+            style={[styles.editBtn, { backgroundColor: tierColors.primaryLight }]}
+            onPress={openEditSheet}
+            hitSlop={8}
+          >
+            <Ionicons name="pencil-outline" size={18} color={tierColors.primary} />
           </Pressable>
-          <View style={styles.avatarRing}>
-            <Ionicons name="person" size={36} color={Colors.primary} />
+          <View style={[styles.avatarRing, { backgroundColor: tierColors.primaryLight }]}>
+            <Ionicons name="person" size={36} color={tierColors.primary} />
           </View>
           {loadingStats && !profile ? (
             <ActivityIndicator color="#FFFFFF" style={{ marginVertical: 8 }} />
@@ -184,6 +187,20 @@ export default function ProfileScreen() {
               <Ionicons name="download-outline" size={18} color={Colors.textSecondary} />
             </View>
             <Text style={styles.rowLabel}>Exporter mes résultats</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+          </Pressable>
+        </Card>
+
+        <Card style={styles.section} padding={0}>
+          <Text style={styles.sectionTitle}>Apparence</Text>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={() => setThemeSheetVisible(true)}
+          >
+            <View style={styles.rowIcon}>
+              <Ionicons name="color-palette-outline" size={18} color={Colors.textSecondary} />
+            </View>
+            <Text style={styles.rowLabel}>Personnaliser l’application</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
           </Pressable>
         </Card>
@@ -247,6 +264,7 @@ export default function ProfileScreen() {
       </Modal>
 
       <ExportSheet visible={exportVisible} onClose={() => setExportVisible(false)} />
+      <ThemeSheet visible={themeSheetVisible} onClose={() => setThemeSheetVisible(false)} />
     </SafeAreaView>
   );
 }
@@ -292,7 +310,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -300,7 +317,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: Colors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,

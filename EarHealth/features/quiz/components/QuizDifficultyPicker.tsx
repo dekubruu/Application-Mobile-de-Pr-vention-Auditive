@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 import type { QuizDifficulty } from '../types/quiz.types';
 
 export type DifficultyChoice = QuizDifficulty | 'mixed';
@@ -17,16 +18,21 @@ interface Option {
   color:  string;
 }
 
-const OPTIONS: Option[] = [
-  { id: 'mixed',  label: 'Mixte',    hint: 'Toutes',  color: Colors.textSecondary },
-  { id: 'easy',   label: 'Facile',   hint: '10 pts',  color: Colors.success },
-  { id: 'medium', label: 'Moyen',    hint: '20 pts',  color: Colors.primary },
-  { id: 'hard',   label: 'Difficile', hint: '30 pts', color: Colors.error },
-];
+function getOptions(primary: string): Option[] {
+  return [
+    { id: 'mixed',  label: 'Mixte',    hint: 'Toutes',  color: Colors.textSecondary },
+    { id: 'easy',   label: 'Facile',   hint: '10 pts',  color: Colors.success },
+    { id: 'medium', label: 'Moyen',    hint: '20 pts',  color: primary },
+    { id: 'hard',   label: 'Difficile', hint: '30 pts', color: Colors.error },
+  ];
+}
 
 export const QuizDifficultyPicker: React.FC<QuizDifficultyPickerProps> = ({
   value, onChange,
-}) => (
+}) => {
+  const { colors: tierColors } = useThemeColors();
+  const OPTIONS = getOptions(tierColors.primary);
+  return (
   <View style={styles.container}>
     <Text style={styles.title}>Difficulté</Text>
     <View style={styles.row}>
@@ -58,7 +64,8 @@ export const QuizDifficultyPicker: React.FC<QuizDifficultyPickerProps> = ({
       })}
     </View>
   </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   container: {

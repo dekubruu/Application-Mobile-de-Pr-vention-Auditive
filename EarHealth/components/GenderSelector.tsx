@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
+import { useThemeColors } from '@/features/theme/ThemeContext';
 
 const OPTIONS = [
   { label: 'Homme', value: 'male' },
@@ -19,25 +20,34 @@ export const GenderSelector: React.FC<GenderSelectorProps> = ({
   onChange,
   label = 'Genre',
   error,
-}) => (
-  <View style={styles.fieldBlock}>
-    <Text style={styles.fieldLabel}>{label}</Text>
-    <View style={styles.genderRow}>
-      {OPTIONS.map(opt => (
-        <Pressable
-          key={opt.value}
-          style={[styles.genderBtn, value === opt.value && styles.genderBtnActive]}
-          onPress={() => onChange(opt.value)}
-        >
-          <Text style={[styles.genderLabel, value === opt.value && styles.genderLabelActive]}>
-            {opt.label}
-          </Text>
-        </Pressable>
-      ))}
+}) => {
+  const { colors: tierColors } = useThemeColors();
+  return (
+    <View style={styles.fieldBlock}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <View style={styles.genderRow}>
+        {OPTIONS.map(opt => {
+          const active = value === opt.value;
+          return (
+            <Pressable
+              key={opt.value}
+              style={[
+                styles.genderBtn,
+                active && { borderColor: tierColors.primary, backgroundColor: tierColors.primaryLight },
+              ]}
+              onPress={() => onChange(opt.value)}
+            >
+              <Text style={[styles.genderLabel, active && { color: tierColors.primary }]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {error ? <Text style={styles.errorInline}>{error}</Text> : null}
     </View>
-    {error ? <Text style={styles.errorInline}>{error}</Text> : null}
-  </View>
-);
+  );
+};
 
 const styles = StyleSheet.create({
   fieldBlock: { marginBottom: 16 },
@@ -48,8 +58,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: Colors.border,
     alignItems: 'center', backgroundColor: Colors.surface,
   },
-  genderBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryLight },
   genderLabel: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
-  genderLabelActive: { color: Colors.primary },
   errorInline: { fontSize: 12, color: Colors.error, marginTop: 6, fontWeight: '500' },
 });

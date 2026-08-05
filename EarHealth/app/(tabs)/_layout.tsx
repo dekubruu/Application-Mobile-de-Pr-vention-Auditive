@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { useThemeColors } from '../../features/theme/ThemeContext';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -11,12 +12,13 @@ function tabIcon(name: IoniconName, focused: boolean, color: string) {
 }
 
 export default function TabLayout() {
+  const { colors: tierColors } = useThemeColors();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: Colors.primary,
+        tabBarActiveTintColor: tierColors.primary,
         tabBarInactiveTintColor: Colors.textSecondary,
         tabBarLabelStyle: styles.label,
       }}
