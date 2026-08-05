@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -52,6 +52,17 @@ export default function QuizScreen() {
   });
 
   const goToDashboard = () => quiz.reset();
+
+  const handleExitQuiz = () => {
+    Alert.alert(
+      'Quitter le quiz ?',
+      'Votre progression sera perdue.',
+      [
+        { text: 'Continuer', style: 'cancel' },
+        { text: 'Quitter',   style: 'destructive', onPress: goToDashboard },
+      ],
+    );
+  };
 
   // ── Helpers ──
   const headerSimple = (title: string) => (
@@ -168,7 +179,7 @@ export default function QuizScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {headerWithBack('Quiz', goToDashboard)}
+      {headerWithBack('Quiz', handleExitQuiz)}
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <QuizProgressBar current={quiz.questionIndex + 1} total={quiz.totalQuestions} />
         <QuizQuestionView
