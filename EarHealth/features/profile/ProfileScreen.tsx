@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -23,6 +24,11 @@ import { profileService } from '@/features/auth/services/profile.service';
 import { StatsGrid } from './components/StatsGrid';
 import { useProfileData } from './hooks/useProfileData';
 import { exportUserData } from './services/export.service';
+
+// Same gradient used for the quiz/hearing-test dashboard heroes — kept as its
+// own local constant here too (not shared/exported), matching how each
+// screen already defines it independently.
+const HERO_GRADIENT: [string, string, string] = ['#0D8FA5', '#0B7285', '#064E5F'];
 
 // ── Date helpers (local-parts based to avoid UTC off-by-one) ────────────────
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -132,7 +138,15 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Card style={styles.profileCard} elevated>
+        <LinearGradient
+          colors={HERO_GRADIENT}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.profileCard}
+        >
+          <View style={styles.decor1} />
+          <View style={styles.decor2} />
+
           <Pressable style={styles.editBtn} onPress={openEditSheet} hitSlop={8}>
             <Ionicons name="pencil-outline" size={18} color={Colors.primary} />
           </Pressable>
@@ -140,24 +154,24 @@ export default function ProfileScreen() {
             <Ionicons name="person" size={36} color={Colors.primary} />
           </View>
           {loadingStats && !profile ? (
-            <ActivityIndicator color={Colors.primary} style={{ marginVertical: 8 }} />
+            <ActivityIndicator color="#FFFFFF" style={{ marginVertical: 8 }} />
           ) : (
             <>
               <Text style={styles.userName}>{profile?.username ?? 'Utilisateur'}</Text>
               <Text style={styles.userEmail}>{session?.user.email ?? ''}</Text>
               <View style={styles.infoRow}>
-                <Ionicons name="calendar-outline" size={14} color={Colors.textTertiary} />
+                <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.infoText}>
                   {profile?.date_of_birth ? formatFrDate(profile.date_of_birth) : 'Non renseigné'}
                 </Text>
               </View>
               <View style={styles.infoRow}>
-                <Ionicons name="person-outline" size={14} color={Colors.textTertiary} />
+                <Ionicons name="person-outline" size={14} color="rgba(255,255,255,0.7)" />
                 <Text style={styles.infoText}>{genderLabel(profile?.gender)}</Text>
               </View>
             </>
           )}
-        </Card>
+        </LinearGradient>
 
         <StatsGrid
           hearingTests={testsCount}
@@ -272,7 +286,23 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   content: { padding: 16, paddingBottom: 48 },
-  profileCard: { alignItems: 'center', paddingVertical: 28, marginBottom: 12 },
+  profileCard: {
+    alignItems: 'center',
+    paddingVertical: 28,
+    marginBottom: 12,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  decor1: {
+    position: 'absolute', top: -40, right: -30,
+    width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  decor2: {
+    position: 'absolute', bottom: -50, left: -40,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
   editBtn: {
     position: 'absolute',
     top: 16,
@@ -296,13 +326,13 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 22,
     fontWeight: '700',
-    color: Colors.text,
+    color: '#FFFFFF',
     letterSpacing: -0.3,
     marginBottom: 4,
   },
-  userEmail: { fontSize: 13, color: Colors.textSecondary },
+  userEmail: { fontSize: 13, color: 'rgba(255,255,255,0.75)' },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  infoText: { fontSize: 13, color: Colors.textSecondary },
+  infoText: { fontSize: 13, color: 'rgba(255,255,255,0.75)' },
   section: { overflow: 'hidden', marginBottom: 12 },
   sectionTitle: {
     fontSize: 11,
