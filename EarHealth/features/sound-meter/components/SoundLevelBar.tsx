@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
+import { Colors } from '@/constants/colors';
 import { getSoundLevelCategory } from '../constants/sound-level.constants';
 
 const MAX_DB = 120;
@@ -43,7 +44,7 @@ const styles = StyleSheet.create({
   track: {
     width: '100%',
     height: 14,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: Colors.border,
     borderRadius: 7,
     overflow: 'hidden',
     marginTop: 16,

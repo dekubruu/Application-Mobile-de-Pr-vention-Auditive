@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/src/utils/supabase';
 import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useQuizStats } from '@/features/quiz/hooks/useQuizStats';
 
 export const useProfileData = () => {
   const { session, profile, refreshProfile, signOut } = useAuth();
@@ -25,12 +26,12 @@ export const useProfileData = () => {
       });
   }, [session]);
 
-  const daysSinceJoined = profile
-    ? Math.max(
-        0,
-        Math.floor((Date.now() - new Date(profile.created_at).getTime()) / 86_400_000),
-      )
-    : 0;
+  // Already computed by the quiz dashboard — reused here rather than
+  // re-derived, so the Profile page never disagrees with that screen.
+  const { stats: quizStats } = useQuizStats(session?.user?.id ?? null);
 
-  return { profile, session, testsCount, daysSinceJoined, loadingStats, refreshProfile, signOut };
+  return {
+    profile, session, testsCount, loadingStats, refreshProfile, signOut,
+    quizSessionsPlayed: quizStats?.sessionsPlayed ?? 0,
+  };
 };

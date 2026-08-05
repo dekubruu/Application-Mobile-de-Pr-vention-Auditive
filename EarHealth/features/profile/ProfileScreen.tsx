@@ -42,10 +42,16 @@ const defaultDob = () => {
 };
 const genderLabel = (g?: string | null) =>
   g === 'male' ? 'Homme' : g === 'female' ? 'Femme' : 'Non renseigné';
+// `created_at` is a full timestamp (unlike date_of_birth's plain date string),
+// so it's parsed as a regular Date rather than with parseISODate.
+const formatMemberSince = (iso: string) =>
+  new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 
 export default function ProfileScreen() {
-  const { profile, session, testsCount, daysSinceJoined, loadingStats, refreshProfile, signOut } =
-    useProfileData();
+  const {
+    profile, session, testsCount, loadingStats, refreshProfile, signOut,
+    quizSessionsPlayed,
+  } = useProfileData();
   const [editVisible, setEditVisible] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editGender, setEditGender] = useState('');
@@ -154,9 +160,9 @@ export default function ProfileScreen() {
         </Card>
 
         <StatsGrid
-          tests={testsCount}
+          hearingTests={testsCount}
+          quizSessions={quizSessionsPlayed}
           points={profile?.total_points ?? 0}
-          days={daysSinceJoined}
         />
 
         <Card style={styles.section} padding={0}>
@@ -201,6 +207,10 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
           </Pressable>
         </Card>
+
+        {profile?.created_at && (
+          <Text style={styles.memberSince}>Membre depuis le {formatMemberSince(profile.created_at)}</Text>
+        )}
       </ScrollView>
 
       <Modal
@@ -325,6 +335,12 @@ const styles = StyleSheet.create({
   rowIconDanger: { backgroundColor: Colors.errorLight },
   rowLabel: { flex: 1, fontSize: 15, color: Colors.text, fontWeight: '500' },
   rowLabelDanger: { color: Colors.error },
+  memberSince: {
+    fontSize: 12,
+    color: Colors.textTertiary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
     backgroundColor: Colors.surface,
