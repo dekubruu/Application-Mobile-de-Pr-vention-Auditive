@@ -13,7 +13,7 @@ interface StatsGridProps {
 const STATS = [
   { key: 'hearingTests', icon: 'ear'             as const, label: 'Tests auditifs' },
   { key: 'quizSessions', icon: 'game-controller'  as const, label: 'Quiz' },
-  { key: 'points',       icon: 'star'             as const, label: 'Points' },
+  { key: 'points',       icon: 'star'             as const, label: 'Points actuel' },
 ];
 
 export const StatsGrid: React.FC<StatsGridProps> = ({ hearingTests, quizSessions, points }) => {
