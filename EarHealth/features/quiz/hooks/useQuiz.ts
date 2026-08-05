@@ -226,6 +226,13 @@ export function useQuiz(args: UseQuizArgs = {}) {
         savedRef.current = false;
         setSaveStatus('error');
       });
+
+    // Best-effort, not queued (see recordCorrectQuestions doc) — a missed
+    // write here doesn't lose points, just delays this question's coverage
+    // credit until it's next answered correctly.
+    const correctIds = result.answers.filter(a => a.isCorrect).map(a => a.questionId);
+    quizService.recordCorrectQuestions(userId, correctIds)
+      .catch((err) => console.warn('[useQuiz] recordCorrectQuestions failed:', err?.message ?? err));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameEnded, userId]);
 

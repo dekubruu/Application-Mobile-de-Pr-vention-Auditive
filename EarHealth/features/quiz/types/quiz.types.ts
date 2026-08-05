@@ -81,6 +81,12 @@ export interface QuizStats {
   bestSessionPct:   number;     // best single-session accuracy 0–100
   bestSessionPoints: number;    // best single-session points_earned
   lastSessionDate:  string | null; // ISO
+  // Distinct-question coverage (NOT session totals, which double-count a
+  // question replayed across sessions). totalQuestionsInApp = size of the
+  // live question bank; correctDistinct = how many distinct questions this
+  // user has ever answered correctly at least once.
+  totalQuestionsInApp: number;
+  correctDistinct:     number;
 }
 
 // ── Pending session: persisted locally before reaching Supabase ───────────────

@@ -267,14 +267,18 @@ export const quizService = {
   },
 
   // ── Aggregated stats for the dashboard ──
-  // Unchanged shape; consumers (useQuizStats) layer caching around it.
+  // Consumers (useQuizStats) layer caching around it.
   async fetchStats(userId: string): Promise<QuizStats> {
-    const { data, error } = await supabase
-      .from('quiz_sessions')
-      .select('total_questions, correct_count, points_earned, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const [sessionsResult, coverage] = await Promise.all([
+      supabase
+        .from('quiz_sessions')
+        .select('total_questions, correct_count, points_earned, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+      this.getQuestionCoverage(userId),
+    ]);
 
+    const { data, error } = sessionsResult;
     if (error) throw error;
 
     const rows = (data ?? []) as Pick<
@@ -292,6 +296,7 @@ export const quizService = {
         bestSessionPct:  0,
         bestSessionPoints: 0,
         lastSessionDate: null,
+        ...coverage,
       };
     }
 
@@ -323,7 +328,50 @@ export const quizService = {
       bestSessionPct:  bestPct,
       bestSessionPoints: bestPoints,
       lastSessionDate: rows[0].created_at,
+      ...coverage,
     };
+  },
+
+  // ── Distinct-question coverage ──
+  // totalQuestionsInApp = size of the live question bank (quiz_questions).
+  // correctDistinct = how many distinct questions this user has ever answered
+  // correctly at least once (quiz_question_progress), independent of how many
+  // times a question was replayed across sessions.
+  //
+  // Soft-fails to 0 rather than throwing: this is a secondary, display-only
+  // stat, so a missing table (e.g. the migration hasn't been run yet) or an
+  // RLS hiccup must not take down the rest of the dashboard (sessions,
+  // points, best score), which don't depend on it.
+  async getQuestionCoverage(userId: string): Promise<{ totalQuestionsInApp: number; correctDistinct: number }> {
+    const [totalResult, correctResult] = await Promise.all([
+      supabase.from('quiz_questions').select('id', { count: 'exact', head: true }),
+      supabase.from('quiz_question_progress').select('question_id', { count: 'exact', head: true }).eq('user_id', userId),
+    ]);
+    if (totalResult.error) {
+      console.warn('[quizService] getQuestionCoverage: quiz_questions count failed:', totalResult.error.message);
+    }
+    if (correctResult.error) {
+      console.warn('[quizService] getQuestionCoverage: quiz_question_progress count failed:', correctResult.error.message);
+    }
+    return {
+      totalQuestionsInApp: totalResult.error ? 0 : (totalResult.count ?? 0),
+      correctDistinct:     correctResult.error ? 0 : (correctResult.count ?? 0),
+    };
+  },
+
+  // ── Best-effort: record which questions were answered correctly ──
+  // Not resilience-queued like session saves: this is a display-only coverage
+  // stat, not points/currency, so a missed write on a flaky connection just
+  // means that question's "first correct" credit is picked up next time it's
+  // answered correctly. `ON CONFLICT DO NOTHING` keeps a question's credit
+  // permanent once earned, even if a later replay gets it wrong.
+  async recordCorrectQuestions(userId: string, questionIds: string[]): Promise<void> {
+    if (questionIds.length === 0) return;
+    const rows = questionIds.map(question_id => ({ user_id: userId, question_id }));
+    const { error } = await supabase
+      .from('quiz_question_progress')
+      .upsert(rows, { onConflict: 'user_id,question_id', ignoreDuplicates: true });
+    if (error) throw error;
   },
 
   // ── Per-attempt history (for the "Derniers quiz" list) ──

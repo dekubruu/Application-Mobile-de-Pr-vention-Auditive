@@ -89,7 +89,7 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
         />
         <StatCard
           icon="checkmark-circle"
-          value={loading ? '—' : `${stats?.totalCorrect ?? 0}/${stats?.totalAnswered ?? 0}`}
+          value={loading ? '—' : `${stats?.correctDistinct ?? 0}/${stats?.totalQuestionsInApp ?? 0}`}
           label="Bonnes rép."
           color={Colors.success}
         />

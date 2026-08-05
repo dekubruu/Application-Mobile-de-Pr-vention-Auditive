@@ -189,7 +189,9 @@ function isQuizStats(v: unknown): v is QuizStats {
     typeof o.accuracyPct     === 'number' &&
     typeof o.bestSessionPct  === 'number' &&
     typeof o.bestSessionPoints === 'number' &&
-    (o.lastSessionDate === null || typeof o.lastSessionDate === 'string')
+    (o.lastSessionDate === null || typeof o.lastSessionDate === 'string') &&
+    typeof o.totalQuestionsInApp === 'number' &&
+    typeof o.correctDistinct     === 'number'
   );
 }
 
