@@ -11,22 +11,11 @@ import { usePreviousHFRTResult } from './hooks/usePreviousHFRTResult';
 import { usePreviousPTTResult } from './hooks/usePreviousPTTResult';
 import {
   getHearingTestById,
+  hfrtPayloadToResult,
   pttPayloadToEarResults,
   type StoredHearingTestRow,
 } from './services/HearingResultService';
 import type { HFRTPayload, PTTPayload } from './services/hearing.storage';
-import type { HFRTResult } from './types/hfrt.types';
-
-function toHFRTResult(payload: HFRTPayload): HFRTResult {
-  return {
-    maxAudibleFrequency: payload.maxFrequencyHz,
-    reliable:            payload.reliable   ?? false,
-    durationMs:          payload.durationMs ?? 0,
-    hitCeiling:          payload.hitCeiling ?? false,
-    noResponse:          payload.noResponse ?? false,
-    reversals:           payload.reversals  ?? 0,
-  };
-}
 
 function fullDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', {
@@ -107,7 +96,7 @@ export default function TestDetailScreen() {
             />
           ) : (
             <HFRTResultView
-              result={toHFRTResult(row.payload as HFRTPayload)}
+              result={hfrtPayloadToResult(row.payload as HFRTPayload)}
               dateOfBirth={dateOfBirth}
               ageAtTest={(row.payload as HFRTPayload).ageAtTest ?? null}
               previousMaxHz={previousMaxHz}

@@ -25,6 +25,14 @@ export const DateField: React.FC<DateFieldProps> = ({
     if (date) onChange(date);
   };
 
+  // Android's DateTimePicker opens its own native Material dialog as soon as
+  // it's mounted — it must not be wrapped in our custom bottom-sheet Modal,
+  // which is an iOS-only pattern for the spinner display.
+  const handleAndroidChange = (event: DateTimePickerEvent, date?: Date) => {
+    setShowPicker(false);
+    if (event.type === 'set' && date) onChange(date);
+  };
+
   return (
     <View style={styles.fieldBlock}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -36,33 +44,45 @@ export const DateField: React.FC<DateFieldProps> = ({
       </Pressable>
       {error ? <Text style={styles.errorInline}>{error}</Text> : null}
 
-      <Modal
-        visible={showPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowPicker(false)}
-      >
-        <Pressable style={styles.overlay} onPress={() => setShowPicker(false)} />
-        <View style={styles.sheet}>
-          <View style={styles.handle} />
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>{label}</Text>
-            <Pressable onPress={() => setShowPicker(false)} hitSlop={8}>
-              <Text style={styles.sheetDone}>Confirmer</Text>
-            </Pressable>
-          </View>
+      {Platform.OS === 'android' ? (
+        showPicker && (
           <DateTimePicker
             value={value}
             mode="date"
-            display="spinner"
-            onChange={handleChange}
+            display="calendar"
+            onChange={handleAndroidChange}
             maximumDate={maximumDate ?? new Date()}
-            locale="fr-FR"
-            style={styles.datePicker}
-            textColor={Colors.text}
           />
-        </View>
-      </Modal>
+        )
+      ) : (
+        <Modal
+          visible={showPicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowPicker(false)}
+        >
+          <Pressable style={styles.overlay} onPress={() => setShowPicker(false)} />
+          <View style={styles.sheet}>
+            <View style={styles.handle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{label}</Text>
+              <Pressable onPress={() => setShowPicker(false)} hitSlop={8}>
+                <Text style={styles.sheetDone}>Confirmer</Text>
+              </Pressable>
+            </View>
+            <DateTimePicker
+              value={value}
+              mode="date"
+              display="spinner"
+              onChange={handleChange}
+              maximumDate={maximumDate ?? new Date()}
+              locale="fr-FR"
+              style={styles.datePicker}
+              textColor={Colors.text}
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 };

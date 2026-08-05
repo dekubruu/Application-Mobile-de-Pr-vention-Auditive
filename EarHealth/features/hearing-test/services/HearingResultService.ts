@@ -8,10 +8,12 @@ import {
   type HearingPayload,
   type HearingResilientSaveOutcome,
   type HearingTestType,
+  type HFRTPayload,
   type PendingHearingResult,
   type PTTPayload,
 } from './hearing.storage';
 import type { FrequencyThreshold } from '../types/hearing-test.types';
+import type { HFRTResult } from '../types/hfrt.types';
 import type { PTTEarResult } from '../types/ptt.types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -289,4 +291,53 @@ export function pttPayloadToEarResults(payload: PTTPayload): PTTEarResult[] {
       reliable:      true,
     })),
   }));
+}
+
+// Stored HFRT payload → view-model, mirroring pttPayloadToEarResults above.
+export function hfrtPayloadToResult(payload: HFRTPayload): HFRTResult {
+  return {
+    maxAudibleFrequency: payload.maxFrequencyHz,
+    reliable:            payload.reliable   ?? false,
+    durationMs:          payload.durationMs ?? 0,
+    hitCeiling:          payload.hitCeiling ?? false,
+    noResponse:          payload.noResponse ?? false,
+    reversals:           payload.reversals  ?? 0,
+  };
+}
+
+// Filtered, uncapped-ish history for the data export: any combination of
+// test types, optionally bounded by a date range (both ends inclusive).
+// Chronological ascending — callers that want newest-first reverse locally.
+const EXPORT_FETCH_LIMIT = 2000;
+
+export interface HearingHistoryFilter {
+  testTypes:  HearingTestType[];
+  startDate?: string; // ISO, inclusive
+  endDate?:   string; // ISO, inclusive
+}
+
+export async function getHearingTestHistoryFiltered(
+  userId: string,
+  filter: HearingHistoryFilter,
+): Promise<StoredHearingTestRow[]> {
+  if (filter.testTypes.length === 0) return [];
+
+  let query = supabase
+    .from('hearing_test_results')
+    .select('id, user_id, created_at, test_type, payload, overall_score')
+    .eq('user_id', userId)
+    .in('test_type', filter.testTypes)
+    .order('created_at', { ascending: true })
+    .limit(EXPORT_FETCH_LIMIT);
+
+  if (filter.startDate) query = query.gte('created_at', filter.startDate);
+  if (filter.endDate)   query = query.lte('created_at', filter.endDate);
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.warn('[HearingResultService] fetch filtered history failed:', error.message);
+    return [];
+  }
+  return (data ?? []) as StoredHearingTestRow[];
 }

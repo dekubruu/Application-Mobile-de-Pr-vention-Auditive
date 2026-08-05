@@ -23,7 +23,6 @@ import { Colors } from '@/constants/colors';
 import { profileService } from '@/features/auth/services/profile.service';
 import { StatsGrid } from './components/StatsGrid';
 import { useProfileData } from './hooks/useProfileData';
-import { exportUserData } from './services/export.service';
 
 // Same gradient used for the quiz/hearing-test dashboard heroes — kept as its
 // own local constant here too (not shared/exported), matching how each
@@ -64,7 +63,6 @@ export default function ProfileScreen() {
   const [editDob, setEditDob] = useState<Date>(defaultDob);
   const [dobTouched, setDobTouched] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [exporting, setExporting] = useState(false);
 
   // Sync the form from the freshest profile each time the sheet opens, and
   // reset the "touched" flag so an untouched DateField never writes a default.
@@ -99,21 +97,6 @@ export default function ProfileScreen() {
       Alert.alert('Erreur', 'Impossible de sauvegarder les modifications.');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleExport = async () => {
-    if (!session || exporting) return;
-    setExporting(true);
-    try {
-      const res = await exportUserData(session.user.id);
-      if (res.status === 'unavailable') {
-        Alert.alert('Partage indisponible', "Le partage n'est pas disponible sur cet appareil.");
-      }
-    } catch {
-      Alert.alert('Erreur', "Impossible d'exporter, vérifiez votre connexion.");
-    } finally {
-      setExporting(false);
     }
   };
 
@@ -193,18 +176,13 @@ export default function ProfileScreen() {
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            onPress={handleExport}
-            disabled={exporting}
+            onPress={() => router.push('/export-data' as any)}
           >
             <View style={styles.rowIcon}>
               <Ionicons name="download-outline" size={18} color={Colors.textSecondary} />
             </View>
-            <Text style={styles.rowLabel}>Exporter mes données</Text>
-            {exporting ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
-            ) : (
-              <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
-            )}
+            <Text style={styles.rowLabel}>Exporter mes résultats</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
           </Pressable>
         </Card>
 
