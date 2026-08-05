@@ -10,6 +10,7 @@ import type {
   QuizFetchOptions,
   QuizResult,
   QuizSaveStatus,
+  SessionDifficulty,
 } from '../types/quiz.types';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
@@ -19,6 +20,10 @@ export interface UseQuizArgs extends QuizFetchOptions {
   autoLoad?: boolean;
   /** User id used to persist sessions. If null/undefined, sessions are NOT saved. */
   userId?:   string | null;
+  /** The difficulty selection the session was launched with (as picked in the
+   *  UI, before it's resolved into a `difficulties` filter array). Persisted
+   *  alongside the result so history rows can show it. */
+  difficultyChoice?: SessionDifficulty;
   /** Optional callback fired after a save attempt (synced OR queued). */
   onSaved?:  () => void;
 }
@@ -30,6 +35,7 @@ export function useQuiz(args: UseQuizArgs = {}) {
     categories,
     difficulties,
     userId,
+    difficultyChoice = 'mixed',
     onSaved,
   } = args;
 
@@ -191,6 +197,7 @@ export function useQuiz(args: UseQuizArgs = {}) {
     pointsTotal:    answers.reduce((sum, a) => sum + a.pointsEarned, 0),
     pointsMax:      questions.reduce((sum, q) => sum + q.points, 0),
     answers,
+    difficulty:     difficultyChoice,
   };
 
   // ── Auto-save when the game ends ──

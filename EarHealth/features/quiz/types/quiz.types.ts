@@ -1,5 +1,8 @@
 export type QuizCategory   = 'anatomy' | 'general' | 'prevention' | 'protection' | 'noise';
 export type QuizDifficulty = 'easy' | 'medium' | 'hard';
+// The difficulty a session was launched with — 'mixed' means no filter (any
+// question difficulty), distinct from a per-question QuizDifficulty.
+export type SessionDifficulty = QuizDifficulty | 'mixed';
 
 // ── Normalized question (UI-ready) ─────────────────────────────────────────────
 export interface Question {
@@ -29,6 +32,7 @@ export interface QuizResult {
   pointsTotal:     number;
   pointsMax:       number;
   answers:         AnsweredQuestion[];
+  difficulty:      SessionDifficulty;
 }
 
 // ── Service filter options (extension hooks for themed quizzes) ───────────────
@@ -63,6 +67,8 @@ export interface QuizSessionRow {
   incorrect_count: number;
   points_earned:   number;
   points_max:      number;
+  // Nullable: absent on rows saved before the `difficulty` column existed.
+  difficulty?:     SessionDifficulty | null;
 }
 
 // ── Aggregated stats shown on the dashboard ──────────────────────────────────
@@ -88,6 +94,7 @@ export interface PendingQuizSession {
   incorrect_count: number;
   points_earned:   number;
   points_max:      number;
+  difficulty:      SessionDifficulty;
   queued_at:       string;       // ISO timestamp (set at enqueue time)
 }
 

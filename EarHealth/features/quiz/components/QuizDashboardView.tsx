@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '@/constants/colors';
-import type { QuizStats } from '../types/quiz.types';
+import type { QuizSessionRow, QuizStats } from '../types/quiz.types';
 import { QuizDifficultyPicker, type DifficultyChoice } from './QuizDifficultyPicker';
 
 interface QuizDashboardViewProps {
@@ -14,6 +14,15 @@ interface QuizDashboardViewProps {
   onChangeDifficulty: (next: DifficultyChoice) => void;
   onStart:      () => void;
   onRefresh:    () => void;
+  history:        QuizSessionRow[];
+  historyLoading: boolean;
+}
+
+function accuracyColor(pct: number): string {
+  if (pct >= 80) return Colors.success;
+  if (pct >= 60) return Colors.primary;
+  if (pct >= 40) return Colors.warning;
+  return Colors.error;
 }
 
 function formatRelativeDate(iso: string | null): string {
@@ -27,6 +36,7 @@ function formatRelativeDate(iso: string | null): string {
 
 export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
   stats, loading, error, difficulty, onChangeDifficulty, onStart, onRefresh,
+  history, historyLoading,
 }) => {
   const empty = !loading && (!stats || stats.sessionsPlayed === 0);
 
@@ -133,6 +143,38 @@ export const QuizDashboardView: React.FC<QuizDashboardViewProps> = ({
           <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.7)" />
         </LinearGradient>
       </Pressable>
+
+      {/* Derniers quiz */}
+      {!empty && (
+        <View style={styles.historySection}>
+          <Text style={styles.historyTitle}>Derniers quiz</Text>
+          {historyLoading && history.length === 0 ? (
+            <ActivityIndicator color={Colors.primary} style={styles.historyLoading} />
+          ) : (
+            history.map(item => {
+              const pct = item.total_questions > 0
+                ? Math.round((item.correct_count / item.total_questions) * 100)
+                : 0;
+              const color = accuracyColor(pct);
+              return (
+                <View key={item.id} style={styles.historyRow}>
+                  <View style={[styles.historyIcon, { backgroundColor: color + '18' }]}>
+                    <Ionicons name="game-controller" size={16} color={color} />
+                  </View>
+                  <View style={styles.historyInfo}>
+                    <Text style={styles.historyDate}>{formatRelativeDate(item.created_at)}</Text>
+                    <Text style={styles.historySub}>
+                      {item.correct_count}/{item.total_questions} bonnes réponses
+                      {item.difficulty ? ` · ${difficultyLabel(item.difficulty)}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={styles.historyPoints}>+{item.points_earned} pts</Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 };
@@ -263,6 +305,41 @@ const styles = StyleSheet.create({
   },
   errorText:  { flex: 1, fontSize: 12, color: Colors.error, fontWeight: '600' },
   errorRetry: { fontSize: 12, color: Colors.error, fontWeight: '800', textDecorationLine: 'underline' },
+
+  // Derniers quiz
+  historySection: {
+    marginHorizontal: 16,
+    marginTop: 18,
+  },
+  historyTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.text,
+    letterSpacing: -0.2,
+    marginBottom: 10,
+  },
+  historyLoading: { marginTop: 8 },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  historyIcon: {
+    width: 36, height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyInfo: { flex: 1 },
+  historyDate: { fontSize: 13, fontWeight: '700', color: Colors.text },
+  historySub:  { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+  historyPoints: { fontSize: 13, fontWeight: '800', color: Colors.warning },
 
   // Empty
   emptyBox: {

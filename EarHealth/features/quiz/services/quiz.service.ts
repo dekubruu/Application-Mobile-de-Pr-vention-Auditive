@@ -17,6 +17,7 @@ import type {
   QuizSessionRow,
   QuizStats,
   ResilientSaveOutcome,
+  SessionDifficulty,
 } from '../types/quiz.types';
 
 const DEFAULT_COUNT       = 10;
@@ -71,6 +72,7 @@ async function persistSession(payload: {
   incorrect_count: number;
   points_earned:   number;
   points_max:      number;
+  difficulty:      SessionDifficulty;
 }): Promise<void> {
   const { error } = await supabase
     .from('quiz_sessions')
@@ -168,6 +170,7 @@ export const quizService = {
       incorrect_count: result.incorrectCount,
       points_earned:   result.pointsTotal,
       points_max:      result.pointsMax,
+      difficulty:      result.difficulty,
       queued_at:       new Date().toISOString(),
     };
 
@@ -187,6 +190,7 @@ export const quizService = {
         incorrect_count: payload.incorrect_count,
         points_earned:   payload.points_earned,
         points_max:      payload.points_max,
+        difficulty:      payload.difficulty,
       });
     } catch {
       // Network unreachable, Supabase 5xx, RLS hiccup — keep the row queued.
@@ -241,6 +245,7 @@ export const quizService = {
             incorrect_count: session.incorrect_count,
             points_earned:   session.points_earned,
             points_max:      session.points_max,
+            difficulty:      session.difficulty,
           });
           // Success (or PK-conflict no-op) → drop from queue.
           await removePendingSession(session.id);
@@ -319,5 +324,24 @@ export const quizService = {
       bestSessionPoints: bestPoints,
       lastSessionDate: rows[0].created_at,
     };
+  },
+
+  // ── Per-attempt history (for the "Derniers quiz" list) ──
+  // Distinct from fetchStats' aggregate — individual rows, newest first.
+  // No cache layer (unlike stats): the list is short and cheap to refetch, and
+  // consumers can retry via refresh().
+  async getHistory(userId: string, limit = 10): Promise<QuizSessionRow[]> {
+    const { data, error } = await supabase
+      .from('quiz_sessions')
+      .select('id, user_id, created_at, total_questions, correct_count, incorrect_count, points_earned, points_max, difficulty')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.warn('[quizService] getHistory failed:', error.message);
+      return [];
+    }
+    return (data ?? []) as QuizSessionRow[];
   },
 };

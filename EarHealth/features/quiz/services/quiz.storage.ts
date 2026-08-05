@@ -85,13 +85,19 @@ function isPendingSession(v: unknown): v is PendingQuizSession {
     typeof o.points_earned   === 'number' &&
     typeof o.points_max      === 'number' &&
     typeof o.queued_at       === 'string'
+    // `difficulty` intentionally NOT required here — see listPendingSessions,
+    // which backfills it for entries queued before the field existed. Making
+    // it required would silently strand pre-existing queued sessions forever
+    // (they'd fail validation and never be returned/flushed again).
   );
 }
 
 export async function listPendingSessions(): Promise<PendingQuizSession[]> {
   const raw = await safeReadJSON<unknown>(KEY_PENDING_QUEUE);
   if (!Array.isArray(raw)) return [];
-  return raw.filter(isPendingSession);
+  return raw
+    .filter(isPendingSession)
+    .map(s => ({ ...s, difficulty: s.difficulty ?? 'mixed' }));
 }
 
 export function enqueuePendingSession(s: PendingQuizSession): Promise<void> {

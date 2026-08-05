@@ -12,6 +12,7 @@ import { QuizProgressBar } from './components/QuizProgressBar';
 import { QuizQuestionView } from './components/QuizQuestionView';
 import { QuizResultsView } from './components/QuizResultsView';
 import { useQuiz } from './hooks/useQuiz';
+import { useQuizHistory } from './hooks/useQuizHistory';
 import { useQuizStats } from './hooks/useQuizStats';
 import type { QuizDifficulty } from './types/quiz.types';
 
@@ -35,12 +36,17 @@ export default function QuizScreen() {
   const { stats, status: statsStatus, error: statsError, refresh: refreshStats } =
     useQuizStats(userId);
 
+  // Dashboard history ("Derniers quiz" list)
+  const { entries: history, loading: historyLoading, refresh: refreshHistory } =
+    useQuizHistory();
+
   // Quiz session — difficulty filter is applied at fetch time inside useQuiz.start()
   const quiz = useQuiz({
     count:        10,
     difficulties,
     userId,
-    onSaved:      refreshStats,
+    difficultyChoice: difficulty,
+    onSaved:      () => { refreshStats(); refreshHistory(); },
   });
 
   const goToDashboard = () => quiz.reset();
@@ -74,6 +80,8 @@ export default function QuizScreen() {
           onChangeDifficulty={setDifficulty}
           onStart={quiz.start}
           onRefresh={refreshStats}
+          history={history}
+          historyLoading={historyLoading}
         />
       </SafeAreaView>
     );
