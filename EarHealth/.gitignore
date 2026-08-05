@@ -41,3 +41,7 @@ app-example
 # generated native folders
 /ios
 /android
+
+coverage/
+coverage-final.json
+lcov.info
