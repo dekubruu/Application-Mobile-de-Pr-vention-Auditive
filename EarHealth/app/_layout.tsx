@@ -19,7 +19,7 @@ function NavigationGuard() {
     // Standalone (non-tab) authenticated routes reachable from the tabs.
     // Legacy 'hearing-test' route was removed; the PTT/HFRT test screens plus
     // the history list and per-test detail live at the app root.
-    const STANDALONE_ROUTES = ['high-frequency-test', 'pure-tone-test', 'history', 'test-detail', 'export-data'];
+    const STANDALONE_ROUTES = ['high-frequency-test', 'pure-tone-test', 'history', 'test-detail'];
     const inStandalone  = STANDALONE_ROUTES.includes(seg0);
 
     if (!session && !inAuth) {

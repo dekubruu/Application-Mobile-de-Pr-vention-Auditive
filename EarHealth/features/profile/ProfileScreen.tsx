@@ -22,6 +22,7 @@ import { GenderSelector } from '@/components/GenderSelector';
 import { Colors } from '@/constants/colors';
 import { profileService } from '@/features/auth/services/profile.service';
 import { StatsGrid } from './components/StatsGrid';
+import { ExportSheet } from './ExportSheet';
 import { useProfileData } from './hooks/useProfileData';
 
 // Same gradient used for the quiz/hearing-test dashboard heroes — kept as its
@@ -58,6 +59,7 @@ export default function ProfileScreen() {
     quizSessionsPlayed,
   } = useProfileData();
   const [editVisible, setEditVisible] = useState(false);
+  const [exportVisible, setExportVisible] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editGender, setEditGender] = useState('');
   const [editDob, setEditDob] = useState<Date>(defaultDob);
@@ -176,7 +178,7 @@ export default function ProfileScreen() {
           </Pressable>
           <Pressable
             style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
-            onPress={() => router.push('/export-data' as any)}
+            onPress={() => setExportVisible(true)}
           >
             <View style={styles.rowIcon}>
               <Ionicons name="download-outline" size={18} color={Colors.textSecondary} />
@@ -243,6 +245,8 @@ export default function ProfileScreen() {
           />
         </View>
       </Modal>
+
+      <ExportSheet visible={exportVisible} onClose={() => setExportVisible(false)} />
     </SafeAreaView>
   );
 }

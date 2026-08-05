@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card } from '@/components/Card';
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Button } from '@/components/Button';
 import { DateField } from '@/components/DateField';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/hooks/useAuth';
@@ -36,7 +34,12 @@ const PERIOD_OPTIONS: PeriodOption[] = [
   { key: 'custom', icon: 'calendar-outline', label: 'Période personnalisée', sub: 'Choisir une date de début et de fin' },
 ];
 
-export default function ExportScreen() {
+interface ExportSheetProps {
+  visible: boolean;
+  onClose: () => void;
+}
+
+export function ExportSheet({ visible, onClose }: ExportSheetProps) {
   const { session, profile } = useAuth();
 
   const [testTypes, setTestTypes] = useState<Set<HearingTestType>>(new Set(['ptt', 'hfrt']));
@@ -83,18 +86,20 @@ export default function ExportScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.replace('/(tabs)/profile' as any)} style={styles.backBtn} hitSlop={8}>
-          <Ionicons name="chevron-back" size={22} color={Colors.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Exporter mes résultats</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <Pressable style={styles.overlay} onPress={onClose} />
+      <View style={styles.sheet}>
+        <View style={styles.sheetHandle} />
+        <Text style={styles.sheetTitle}>Exporter mes résultats</Text>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Quels tests ?</Text>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <Text style={styles.sheetLabel}>Quels tests ?</Text>
           {TEST_TYPE_OPTIONS.map(opt => {
             const active = testTypes.has(opt.key);
             return (
@@ -118,10 +123,8 @@ export default function ExportScreen() {
               </Pressable>
             );
           })}
-        </Card>
 
-        <Card style={styles.section}>
-          <Text style={styles.sectionTitle}>Sur quelle période ?</Text>
+          <Text style={[styles.sheetLabel, styles.periodLabel]}>Sur quelle période ?</Text>
           {PERIOD_OPTIONS.map(opt => {
             const active = periodMode === opt.key;
             return (
@@ -162,63 +165,58 @@ export default function ExportScreen() {
               />
             </View>
           )}
-        </Card>
 
-        <Pressable
-          onPress={handleGenerate}
-          disabled={!canGenerate}
-          style={({ pressed }) => [
-            styles.generateBtn,
-            !canGenerate && styles.generateBtnDisabled,
-            pressed && canGenerate && styles.generateBtnPressed,
-          ]}
-        >
-          {generating ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="download-outline" size={18} color="#fff" />
-              <Text style={styles.generateBtnText}>Générer l’export PDF</Text>
-            </>
+          <Button
+            title={generating ? 'Génération…' : 'Générer l’export PDF'}
+            variant="primary"
+            size="lg"
+            onPress={handleGenerate}
+            disabled={!canGenerate}
+            style={styles.sheetBtn}
+          />
+          {testTypes.size === 0 && (
+            <Text style={styles.warningText}>Sélectionne au moins un type de test.</Text>
           )}
-        </Pressable>
-        {testTypes.size === 0 && (
-          <Text style={styles.warningText}>Sélectionne au moins un type de test.</Text>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          <Button title="Annuler" variant="ghost" size="md" onPress={onClose} />
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
+  sheet: {
     backgroundColor: Colors.surface,
-    borderBottomWidth: 0.5,
-    borderBottomColor: Colors.border,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    maxHeight: '85%',
   },
-  backBtn: {
-    width: 38, height: 38,
-    borderRadius: 10,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: Colors.surfaceSecondary,
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: 20,
   },
-  headerSpacer: { width: 38, height: 38 },
-  headerTitle: {
-    flex: 1, textAlign: 'center',
-    fontSize: 16, fontWeight: '700',
-    color: Colors.text, letterSpacing: -0.2,
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: Colors.text,
+    letterSpacing: -0.3,
+    marginBottom: 20,
   },
-
-  content: { padding: 16, paddingBottom: 48 },
-
-  section: { marginBottom: 14 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  scrollContent: { paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+  sheetLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 7,
+  },
+  periodLabel: { marginTop: 20 },
 
   typeRow: {
     flexDirection: 'row',
@@ -244,24 +242,13 @@ const styles = StyleSheet.create({
 
   customDates: { marginTop: 12 },
 
-  generateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 16,
-    marginTop: 8,
-  },
-  generateBtnDisabled: { opacity: 0.5 },
-  generateBtnPressed: { opacity: 0.9 },
-  generateBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  sheetBtn: { marginTop: 20, marginBottom: 8 },
   warningText: {
     fontSize: 12,
     color: Colors.warning,
     textAlign: 'center',
-    marginTop: 10,
+    marginTop: -4,
+    marginBottom: 12,
     fontWeight: '600',
   },
 });
