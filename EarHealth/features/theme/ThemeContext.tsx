@@ -1,11 +1,12 @@
 import React, { createContext, useCallback, useContext, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { profileService } from '@/features/auth/services/profile.service';
+import { themeService } from './services/theme.service';
 import { TIER_COST, TIER_ORDER, TIER_PALETTES, type ThemeTier, type TierPalette } from './theme.constants';
 
 type PurchaseResult =
   | { ok: true }
-  | { ok: false; reason: 'not-authenticated' | 'out-of-order' | 'insufficient-points' | 'race-lost' };
+  | { ok: false; reason: 'not-authenticated' | 'out-of-order' | 'insufficient-points' | 'race-lost' | 'error' };
 
 interface ThemeContextValue {
   tier:         ThemeTier;
@@ -27,11 +28,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const { session, profile, refreshProfile } = useAuth();
 
   const ownedTiers = useMemo<ThemeTier[]>(() => {
-    const fromProfile = (profile?.owned_tiers ?? [])
-      .map(parseTier)
+    const fromProfile = (profile?.theme_unlocks ?? [])
+      .map(u => parseTier(u.theme))
       .filter((t): t is ThemeTier => t !== null);
     return ['default', ...fromProfile];
-  }, [profile?.owned_tiers]);
+  }, [profile?.theme_unlocks]);
 
   const tier = parseTier(profile?.active_theme) ?? 'default';
   const colors = TIER_PALETTES[tier];
@@ -47,12 +48,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const cost = TIER_COST[target];
     if (profile.total_points < cost) return { ok: false, reason: 'insufficient-points' };
 
-    const result = await profileService.purchaseTier(session.user.id, {
-      cost,
-      currentPoints:  profile.total_points,
-      nextOwnedTiers: [...(profile.owned_tiers ?? []), target],
-    });
-    if (!result) return { ok: false, reason: 'race-lost' };
+    try {
+      await themeService.purchaseTier(target, cost);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '';
+      if (message.includes('insufficient_points')) return { ok: false, reason: 'race-lost' };
+      return { ok: false, reason: 'error' };
+    }
     await refreshProfile();
     return { ok: true };
   }, [session, profile, nextTier, refreshProfile]);

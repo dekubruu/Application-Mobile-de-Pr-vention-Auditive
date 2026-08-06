@@ -25,7 +25,7 @@ const fakeUser = { id: 'u1', email: 'a@b.com' };
 const fakeSession = { user: fakeUser, access_token: 'tok' };
 const fakeProfile = {
   id: 'u1', username: 'Alice', date_of_birth: null, gender: null,
-  total_points: 100, owned_tiers: [], active_theme: 'default',
+  total_points: 100, theme_unlocks: [], active_theme: 'default',
   created_at: 'now', updated_at: 'now',
 };
 

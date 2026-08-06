@@ -46,3 +46,6 @@ app-example
 coverage/
 coverage-final.json
 lcov.info
+
+security_audit.md
+database_usage_report.md

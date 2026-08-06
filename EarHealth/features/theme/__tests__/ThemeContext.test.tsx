@@ -4,23 +4,31 @@ import { fakeSession, mockAuthModule, mockUseAuth } from '../../../test-utils/mo
 
 jest.mock('@/features/auth/hooks/useAuth', () => mockAuthModule);
 jest.mock('@/features/auth/services/profile.service', () => ({
-  profileService: { purchaseTier: jest.fn(), setActiveTheme: jest.fn() },
+  profileService: { setActiveTheme: jest.fn() },
+}));
+jest.mock('../services/theme.service', () => ({
+  themeService: { purchaseTier: jest.fn() },
 }));
 
 import { profileService } from '@/features/auth/services/profile.service';
+import { themeService } from '../services/theme.service';
 import { ThemeProvider, useThemeColors } from '../ThemeContext';
 import { TIER_PALETTES } from '../theme.constants';
 import type { Profile } from '@/features/auth/types/auth.types';
 
-const mockPurchaseTier = profileService.purchaseTier as jest.Mock;
+const mockPurchaseTier = themeService.purchaseTier as jest.Mock;
 const mockSetActiveTheme = profileService.setActiveTheme as jest.Mock;
 
-function makeProfile(overrides: Partial<Profile> = {}): Profile {
+// theme_unlocks takes plain tier names for convenience; converted to the
+// {theme} shape ThemeContext expects (matches the embedded relation shape).
+function makeProfile(overrides: Partial<Profile> & { owned_tiers?: string[] } = {}): Profile {
+  const { owned_tiers, ...rest } = overrides;
   return {
     id: 'u1', username: 'Alice', date_of_birth: null, gender: null,
-    total_points: 500, owned_tiers: [], active_theme: 'default',
+    total_points: 500, theme_unlocks: [], active_theme: 'default',
     created_at: 'now', updated_at: 'now',
-    ...overrides,
+    ...(owned_tiers ? { theme_unlocks: owned_tiers.map(theme => ({ theme })) } : {}),
+    ...rest,
   };
 }
 
@@ -90,21 +98,27 @@ describe('purchaseTier', () => {
     expect(mockPurchaseTier).not.toHaveBeenCalled();
   });
 
-  test('fails with "race-lost" when the service returns null (guarded update matched no row)', async () => {
-    mockPurchaseTier.mockResolvedValue(null);
+  test('fails with "race-lost" when the RPC rejects due to a stale/insufficient balance', async () => {
+    mockPurchaseTier.mockRejectedValue(new Error('insufficient_points'));
     const { result } = renderThemeHook(fakeSession('u1'), makeProfile({ total_points: 500, owned_tiers: [] }));
     await expect(result.current.purchaseTier('bronze')).resolves.toEqual({ ok: false, reason: 'race-lost' });
   });
 
-  test('succeeds, calls the service with the right payload, and refreshes the profile', async () => {
-    mockPurchaseTier.mockResolvedValue(makeProfile({ owned_tiers: ['bronze'], total_points: 300 }));
+  test('fails with "error" on any other RPC failure (e.g. network)', async () => {
+    mockPurchaseTier.mockRejectedValue(new Error('network error'));
+    const { result } = renderThemeHook(fakeSession('u1'), makeProfile({ total_points: 500, owned_tiers: [] }));
+    await expect(result.current.purchaseTier('bronze')).resolves.toEqual({ ok: false, reason: 'error' });
+  });
+
+  test('succeeds, calls the RPC with the right tier/cost, and refreshes the profile', async () => {
+    mockPurchaseTier.mockResolvedValue(undefined);
     const refreshProfile = jest.fn();
     const { result } = renderThemeHook(fakeSession('u1'), makeProfile({ total_points: 500, owned_tiers: [] }), refreshProfile);
 
     const outcome = await result.current.purchaseTier('bronze');
 
     expect(outcome).toEqual({ ok: true });
-    expect(mockPurchaseTier).toHaveBeenCalledWith('u1', { cost: 200, currentPoints: 500, nextOwnedTiers: ['bronze'] });
+    expect(mockPurchaseTier).toHaveBeenCalledWith('bronze', 200);
     expect(refreshProfile).toHaveBeenCalled();
   });
 });

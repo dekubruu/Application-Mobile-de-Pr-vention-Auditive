@@ -11,7 +11,7 @@ const baseProfile: Profile = {
   date_of_birth: '2000-01-01',
   gender: 'female',
   total_points: 500,
-  owned_tiers: ['bronze'],
+  theme_unlocks: [{ theme: 'bronze' }],
   active_theme: 'bronze',
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',
@@ -23,6 +23,15 @@ describe('profileService.getProfile', () => {
   test('returns the profile row on success', async () => {
     mockFrom.mockReturnValue(makeQueryResult({ data: baseProfile, error: null }));
     await expect(profileService.getProfile('u1')).resolves.toEqual(baseProfile);
+  });
+
+  test('requests the theme_unlocks relation alongside the profile columns', async () => {
+    const builder = makeQueryResult({ data: baseProfile, error: null });
+    mockFrom.mockReturnValue(builder);
+
+    await profileService.getProfile('u1');
+
+    expect(builder.select).toHaveBeenCalledWith(expect.stringContaining('user_theme_unlocks'));
   });
 
   test('throws the Supabase error (e.g. row not found)', async () => {
@@ -50,29 +59,6 @@ describe('profileService.updateProfile', () => {
     const error = { message: 'constraint violation' };
     mockFrom.mockReturnValue(makeQueryResult({ data: null, error }));
     await expect(profileService.updateProfile('u1', { username: 'x' })).rejects.toEqual(error);
-  });
-});
-
-describe('profileService.purchaseTier', () => {
-  beforeEach(() => resetSupabaseMock());
-
-  test('deducts the cost from currentPoints and appends the new tier', async () => {
-    const builder = makeQueryResult({ data: { ...baseProfile, total_points: 300 }, error: null });
-    mockFrom.mockReturnValue(builder);
-
-    const result = await profileService.purchaseTier('u1', { cost: 200, currentPoints: 500, nextOwnedTiers: ['bronze', 'argent'] });
-
-    expect(builder.update).toHaveBeenCalledWith(
-      expect.objectContaining({ total_points: 300, owned_tiers: ['bronze', 'argent'] }),
-    );
-    expect(builder.gte).toHaveBeenCalledWith('total_points', 200);
-    expect(result).toEqual({ ...baseProfile, total_points: 300 });
-  });
-
-  test('returns null (not a throw) when the guarded update matches no row (race lost / insufficient balance)', async () => {
-    mockFrom.mockReturnValue(makeQueryResult({ data: null, error: { message: 'no rows returned' } }));
-    const result = await profileService.purchaseTier('u1', { cost: 999_999, currentPoints: 500, nextOwnedTiers: ['bronze'] });
-    expect(result).toBeNull();
   });
 });
 

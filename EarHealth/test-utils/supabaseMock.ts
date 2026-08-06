@@ -53,6 +53,7 @@ export function makeQueryResult(result: QueryResult) {
 }
 
 export const mockFrom = jest.fn();
+export const mockRpc  = jest.fn();
 
 export const mockAuth = {
   signInWithPassword: jest.fn(),
@@ -64,12 +65,14 @@ export const mockAuth = {
 
 export const mockSupabase = {
   from: mockFrom,
+  rpc:  mockRpc,
   auth: mockAuth,
 };
 
 // Call in beforeEach to reset call history/implementations between tests.
 export function resetSupabaseMock(): void {
   mockFrom.mockReset();
+  mockRpc.mockReset();
   mockAuth.signInWithPassword.mockReset();
   mockAuth.signUp.mockReset();
   mockAuth.signOut.mockReset();
