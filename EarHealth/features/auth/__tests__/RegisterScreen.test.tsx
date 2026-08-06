@@ -21,8 +21,8 @@ function fillValidFormExcept(
   if (skip !== 'username') fireEvent.changeText(getByPlaceholderText('ex: johndoe'), 'johndoe');
   if (skip !== 'gender') fireEvent.press(getByText('Homme'));
   if (skip !== 'email') fireEvent.changeText(getByPlaceholderText('votre@email.com'), 'a@b.com');
-  if (skip !== 'password') fireEvent.changeText(getByPlaceholderText('Minimum 6 caractères'), 'secret1');
-  if (skip !== 'confirmPassword') fireEvent.changeText(getByPlaceholderText('••••••••'), 'secret1');
+  if (skip !== 'password') fireEvent.changeText(getByPlaceholderText('Minimum 8 caractères'), 'secret123');
+  if (skip !== 'confirmPassword') fireEvent.changeText(getByPlaceholderText('••••••••'), 'secret123');
 }
 
 describe('RegisterScreen', () => {
@@ -61,13 +61,13 @@ describe('RegisterScreen', () => {
     await waitFor(() => expect(utils.getByText('Email invalide.')).toBeTruthy());
   });
 
-  test('requires a password of at least 6 characters', async () => {
+  test('requires a password of at least 8 characters', async () => {
     const utils = render(<RegisterScreen />);
     fillValidFormExcept(utils, 'password');
-    fireEvent.changeText(utils.getByPlaceholderText('Minimum 6 caractères'), 'abc');
-    fireEvent.changeText(utils.getByPlaceholderText('••••••••'), 'abc');
+    fireEvent.changeText(utils.getByPlaceholderText('Minimum 8 caractères'), 'abc1234');
+    fireEvent.changeText(utils.getByPlaceholderText('••••••••'), 'abc1234');
     fireEvent.press(utils.getByText('Créer mon compte'));
-    await waitFor(() => expect(utils.getByText('Minimum 6 caractères.')).toBeTruthy());
+    await waitFor(() => expect(utils.getByText('Minimum 8 caractères.')).toBeTruthy());
   });
 
   test('requires matching password confirmation', async () => {
@@ -85,7 +85,7 @@ describe('RegisterScreen', () => {
     fireEvent.press(utils.getByText('Créer mon compte'));
 
     await waitFor(() => expect(mockSignUp).toHaveBeenCalledWith(
-      'a@b.com', 'secret1', 'johndoe', expect.any(String), 'male',
+      'a@b.com', 'secret123', 'johndoe', expect.any(String), 'male',
     ));
     await waitFor(() => expect(utils.getByText('Compte créé !')).toBeTruthy());
   });

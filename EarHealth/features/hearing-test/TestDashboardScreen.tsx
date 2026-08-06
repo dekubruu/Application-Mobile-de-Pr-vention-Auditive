@@ -279,7 +279,7 @@ export default function TestDashboardScreen() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Derniers tests</Text>
               <Pressable
-                onPress={() => router.push('/history' as any)}
+                onPress={() => router.push({ pathname: '/history', params: { from: 'test' } } as any)}
                 hitSlop={8}
                 style={({ pressed }) => [styles.seeAllBtn, pressed && { opacity: 0.6 }]}
               >

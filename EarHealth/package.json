@@ -23,6 +23,7 @@
     "@react-navigation/native": "^7.1.8",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.0",
+    "aes-js": "^3.1.2",
     "expo": "~54.0.33",
     "expo-audio": "~1.1.1",
     "expo-build-properties": "~1.0.10",
@@ -36,6 +37,7 @@
     "expo-linking": "~8.0.11",
     "expo-print": "~15.0.8",
     "expo-router": "~6.0.23",
+    "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
@@ -56,6 +58,7 @@
   },
   "devDependencies": {
     "@testing-library/react-native": "^13.2.0",
+    "@types/aes-js": "^3.1.4",
     "@types/jest": "29.5.14",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",

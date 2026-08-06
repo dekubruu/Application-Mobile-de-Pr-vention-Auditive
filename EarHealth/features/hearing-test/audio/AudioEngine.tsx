@@ -31,7 +31,7 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
         const v = clamp01(volume);
         const f = Math.max(20, Math.min(22000, frequency));
         webViewRef.current?.injectJavaScript(
-          `window.playTone && window.playTone(${f}, ${v}, '${channel}'); true;`
+          `window.playTone && window.playTone(${JSON.stringify(f)}, ${JSON.stringify(v)}, ${JSON.stringify(channel)}); true;`
         );
       },
       stopTone() {
@@ -39,12 +39,12 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
       },
       setVolume(volume) {
         const v = clamp01(volume);
-        webViewRef.current?.injectJavaScript(`window.setVolume && window.setVolume(${v}); true;`);
+        webViewRef.current?.injectJavaScript(`window.setVolume && window.setVolume(${JSON.stringify(v)}); true;`);
       },
       setFrequency(frequency) {
         const f = Math.max(20, Math.min(22000, frequency));
         webViewRef.current?.injectJavaScript(
-          `window.setFrequency && window.setFrequency(${f}); true;`
+          `window.setFrequency && window.setFrequency(${JSON.stringify(f)}); true;`
         );
       },
     }), []);
@@ -78,7 +78,7 @@ export const AudioEngine = forwardRef<AudioEngineHandle, AudioEngineProps>(
                 readyRef.current = true;
                 onReady?.();
               }
-              if (data.type === 'freq_played') {
+              if (data.type === 'freq_played' && __DEV__) {
                 console.log('[HFRT] Fréquence jouée :', data.hz, 'Hz');
               }
             } catch {

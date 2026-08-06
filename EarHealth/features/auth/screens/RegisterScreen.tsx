@@ -57,7 +57,7 @@ export default function RegisterScreen() {
     if (!form.email.trim()) e.email = 'Email requis.';
     else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Email invalide.';
     if (!form.password) e.password = 'Mot de passe requis.';
-    else if (form.password.length < 6) e.password = 'Minimum 6 caractères.';
+    else if (form.password.length < 8) e.password = 'Minimum 8 caractères.';
     if (form.password !== form.confirmPassword)
       e.confirmPassword = 'Les mots de passe ne correspondent pas.';
     setErrors(e);
@@ -166,7 +166,7 @@ export default function RegisterScreen() {
               label="Mot de passe"
               value={form.password}
               onChangeText={set('password')}
-              placeholder="Minimum 6 caractères"
+              placeholder="Minimum 8 caractères"
               secureToggle
               error={errors.password}
             />

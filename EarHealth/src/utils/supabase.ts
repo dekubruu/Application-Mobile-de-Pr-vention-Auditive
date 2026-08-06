@@ -1,9 +1,11 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
+import { LargeSecureStore } from './secureStorage';
 
-// On web, AsyncStorage uses window.localStorage which crashes during SSR (Node.js).
-// This adapter guards against that and falls back to localStorage in the browser.
+// On web, SecureStore doesn't exist and AsyncStorage's localStorage adapter
+// crashes during SSR (Node.js) — fall back to a guarded localStorage adapter.
+// On native, the session (JWT + refresh token) is encrypted at rest via
+// SecureStore/Keychain-backed LargeSecureStore instead of plain AsyncStorage.
 const storage =
   Platform.OS === 'web'
     ? {
@@ -20,7 +22,7 @@ const storage =
           return Promise.resolve();
         },
       }
-    : AsyncStorage;
+    : new LargeSecureStore();
 
 export const supabase = createClient(
   process.env.EXPO_PUBLIC_SUPABASE_URL!,

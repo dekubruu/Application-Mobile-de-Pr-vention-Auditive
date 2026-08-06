@@ -33,11 +33,25 @@ jest.mock('react-native-safe-area-context', () =>
 );
 
 // expo-crypto: deterministic, incrementing UUID instead of real randomness —
-// keeps assertions on generated ids stable across test runs.
+// keeps assertions on generated ids stable across test runs. getRandomBytes
+// (used by LargeSecureStore's AES key generation) delegates to Node's real
+// crypto so encryption round-trips still behave like actual randomness.
 jest.mock('expo-crypto', () => {
   let counter = 0;
+  const nodeCrypto = require('crypto');
   return {
     randomUUID: jest.fn(() => `test-uuid-${++counter}`),
+    getRandomBytes: jest.fn((byteCount: number) => new Uint8Array(nodeCrypto.randomBytes(byteCount))),
+  };
+});
+
+// expo-secure-store: in-memory fake (no official jest mock is shipped).
+jest.mock('expo-secure-store', () => {
+  const mockStore = new Map<string, string>();
+  return {
+    getItemAsync: jest.fn((key: string) => Promise.resolve(mockStore.get(key) ?? null)),
+    setItemAsync: jest.fn((key: string, value: string) => { mockStore.set(key, value); return Promise.resolve(); }),
+    deleteItemAsync: jest.fn((key: string) => { mockStore.delete(key); return Promise.resolve(); }),
   };
 });
 

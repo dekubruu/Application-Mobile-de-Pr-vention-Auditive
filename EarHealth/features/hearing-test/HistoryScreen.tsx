@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -61,11 +61,20 @@ const FILTERS: {
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { from } = useLocalSearchParams<{ from?: string }>();
   const { colors: tierColors } = useThemeColors();
   const { loading, entries, refresh } = useTestHistory();
   const [filter, setFilter] = useState<HistoryFilter>('all');
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const activeFilter = FILTERS.find(f => f.key === filter) ?? FILTERS[0];
+
+  // Reached from two different tabs (accueil/profil) — return to whichever
+  // one linked here instead of relying on the back-stack, which doesn't
+  // reliably track the originating tab across the root/tabs navigator
+  // boundary. `from` is unset for any other entry point (defaults to accueil).
+  const goBack = () => {
+    router.replace((from === 'profile' ? '/(tabs)/profile' : '/(tabs)/test') as any);
+  };
 
   const filtered = useMemo(
     () => (filter === 'all' ? entries : entries.filter(e => e.testType === filter)),
@@ -95,7 +104,7 @@ export default function HistoryScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn} hitSlop={8}>
+        <Pressable onPress={goBack} style={styles.backBtn} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={Colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Historique des tests</Text>
