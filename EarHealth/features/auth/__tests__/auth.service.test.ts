@@ -1,4 +1,4 @@
-import { mockAuth, mockSupabase, resetSupabaseMock } from '../../../test-utils/supabaseMock';
+import { mockAuth, mockFunctionsInvoke, mockSupabase, resetSupabaseMock } from '../../../test-utils/supabaseMock';
 
 jest.mock('@/src/utils/supabase', () => ({ supabase: mockSupabase }));
 
@@ -60,5 +60,21 @@ describe('authService.signOut', () => {
     const error = { message: 'Network error' };
     mockAuth.signOut.mockResolvedValue({ error });
     await expect(authService.signOut()).rejects.toBe(error);
+  });
+});
+
+describe('authService.deleteAccount', () => {
+  beforeEach(() => resetSupabaseMock());
+
+  test('invokes the delete-account Edge Function and resolves on success', async () => {
+    mockFunctionsInvoke.mockResolvedValue({ data: { success: true }, error: null });
+    await expect(authService.deleteAccount()).resolves.toBeUndefined();
+    expect(mockFunctionsInvoke).toHaveBeenCalledWith('delete-account');
+  });
+
+  test('throws when the Edge Function returns an error', async () => {
+    const error = { message: 'Invalid or expired session' };
+    mockFunctionsInvoke.mockResolvedValue({ data: null, error });
+    await expect(authService.deleteAccount()).rejects.toBe(error);
   });
 });

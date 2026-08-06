@@ -20,6 +20,7 @@ import { Card } from '@/components/Card';
 import { DateField } from '@/components/DateField';
 import { GenderSelector } from '@/components/GenderSelector';
 import { Colors } from '@/constants/colors';
+import { authService } from '@/features/auth/services/auth.service';
 import { profileService } from '@/features/auth/services/profile.service';
 import { useThemeColors } from '@/features/theme/ThemeContext';
 import { StatsGrid } from './components/StatsGrid';
@@ -64,6 +65,7 @@ export default function ProfileScreen() {
   const [editDob, setEditDob] = useState<Date>(defaultDob);
   const [dobTouched, setDobTouched] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   // Sync the form from the freshest profile each time the sheet opens, and
   // reset the "touched" flag so an untouched DateField never writes a default.
@@ -113,6 +115,32 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Supprimer votre compte ?',
+      'Cette action est irréversible. Votre profil, vos résultats de tests, votre historique de quiz et vos thèmes débloqués seront définitivement supprimés.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer définitivement',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingAccount(true);
+            try {
+              await authService.deleteAccount();
+              await signOut();
+              router.replace('/(auth)/login' as any);
+            } catch {
+              Alert.alert('Erreur', 'Impossible de supprimer le compte. Réessayez plus tard.');
+            } finally {
+              setDeletingAccount(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -215,6 +243,21 @@ export default function ProfileScreen() {
               <Ionicons name="log-out-outline" size={18} color={Colors.error} />
             </View>
             <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Déconnexion</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={handleDeleteAccount}
+            disabled={deletingAccount}
+          >
+            <View style={[styles.rowIcon, styles.rowIconDanger]}>
+              {deletingAccount ? (
+                <ActivityIndicator size="small" color={Colors.error} />
+              ) : (
+                <Ionicons name="trash-outline" size={18} color={Colors.error} />
+              )}
+            </View>
+            <Text style={[styles.rowLabel, styles.rowLabelDanger]}>Supprimer mon compte</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textTertiary} />
           </Pressable>
         </Card>
